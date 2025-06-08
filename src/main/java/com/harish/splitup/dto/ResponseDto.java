@@ -7,7 +7,6 @@ import lombok.Setter;
 @Getter @Setter
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ResponseDto<T> {
-
     private String message;
     private T data;
     private int code;

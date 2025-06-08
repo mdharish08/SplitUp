@@ -6,8 +6,7 @@ import com.fasterxml.jackson.annotation.ObjectIdGenerators;
 import com.harish.splitup.constants.AppConstants;
 import com.harish.splitup.dto.UserDto;
 import jakarta.persistence.*;
-import lombok.Builder;
-import lombok.Data;
+import lombok.*;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.util.ObjectUtils;
@@ -16,7 +15,10 @@ import java.sql.Timestamp;
 import java.util.Collection;
 import java.util.List;
 
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 @Entity
 @Table(name = "split_user")
 @Builder(setterPrefix = "with")
@@ -32,7 +34,7 @@ public class SplitUser implements UserDetails, Comparable<SplitUser>{
 
     private String phoneNumber;
 
-    private String passWord;
+    private String userPassWord;
 
     @Column(name = "emailId")
     private String emailId;
@@ -73,17 +75,17 @@ public class SplitUser implements UserDetails, Comparable<SplitUser>{
 
     @Override
     public String getPassword() {
-        return "";
+        return this.getUserPassWord();
     }
 
     @Override
     public String getUsername() {
-        return "";
+       return this.getEmailId();
     }
 
     @Override
     public boolean isAccountNonExpired() {
-        return UserDetails.super.isAccountNonExpired();
+        return !this.isTrashed();
     }
 
     @Override
