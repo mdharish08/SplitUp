@@ -1,7 +1,6 @@
 package com.harish.splitup.filters;
 
 import com.harish.splitup.auth.JwtAuthenticationToken;
-import com.harish.splitup.service.JwtService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -15,31 +14,28 @@ import java.io.IOException;
 
 public class JwtValidationFilter extends OncePerRequestFilter {
 
-    JwtService jwtService;
-    AuthenticationManager authManager;
+    private final AuthenticationManager authManager;
 
-    public JwtValidationFilter(JwtService jwtService, AuthenticationManager authManager){
-        this.jwtService = jwtService;
+    public JwtValidationFilter(AuthenticationManager authManager) {
         this.authManager = authManager;
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-        String token = getAuthToken(request);
-        if(token != null){
-            JwtAuthenticationToken jwtAuthToken = new JwtAuthenticationToken(token);
-            Authentication auth = this.authManager.authenticate(jwtAuthToken);
-            if(auth.isAuthenticated()){
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+                                    FilterChain filterChain) throws ServletException, IOException {
+        String token = extractBearerToken(request);
+        if (token != null) {
+            Authentication auth = authManager.authenticate(new JwtAuthenticationToken(token));
+            if (auth.isAuthenticated()) {
                 SecurityContextHolder.getContext().setAuthentication(auth);
             }
         }
-        filterChain.doFilter(request,response);
+        filterChain.doFilter(request, response);
     }
 
-    private String getAuthToken(HttpServletRequest request) {
+    private String extractBearerToken(HttpServletRequest request) {
         String header = request.getHeader("Authorization");
-
-        if(header != null){
+        if (header != null && header.startsWith("Bearer ")) {
             return header.substring(7);
         }
         return null;

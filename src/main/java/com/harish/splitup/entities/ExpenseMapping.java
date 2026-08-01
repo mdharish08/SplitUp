@@ -1,18 +1,22 @@
 package com.harish.splitup.entities;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 import lombok.Data;
 
 @Data
 @Entity
+@Table(name = "expense_mappings")
 public class ExpenseMapping {
 
-    @Id @GeneratedValue
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long mappingId;
 
-    private Long userId;
+    @ManyToOne
+    @JoinColumn(name = "user_id", nullable = false)
+    private SplitUser user;
 
-    private Long expenseId;
+    @ManyToOne
+    @JoinColumn(name = "expense_id", nullable = false)
+    private Expense expense;
 }

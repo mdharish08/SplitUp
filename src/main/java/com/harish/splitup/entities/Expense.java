@@ -5,6 +5,7 @@ import com.harish.splitup.dto.ExpenseDto;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
@@ -13,16 +14,19 @@ import java.util.List;
 @Entity
 public class Expense {
 
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long expenseId;
 
-    @OneToOne
+    @ManyToOne
     @JoinColumn(name = "category_id", nullable = false)
     private Category category;
 
-    private double cost = 0.0;
+    private BigDecimal cost = BigDecimal.ZERO;
 
-    private String currencyCode;
+    @Enumerated(EnumType.STRING)
+    @Column(length = 3)
+    private AppConstants.CurrencyCode currencyCode;
 
     private int commentsCount = 0;
 
@@ -34,6 +38,10 @@ public class Expense {
     @ManyToOne
     @JoinColumn(name = "group_id")
     private Group group;
+
+    @ManyToOne
+    @JoinColumn(name = "paid_by")
+    private SplitUser paidBy;
 
     private String description;
 
@@ -47,13 +55,13 @@ public class Expense {
 
     private Timestamp createdAt;
 
-    @OneToMany(mappedBy = "expense",orphanRemoval = true,cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "expense", orphanRemoval = true, cascade = CascadeType.ALL)
     private List<SplitDetails> splitDetails = new ArrayList<>();
 
-    public ExpenseDto toDTO(){
+    public ExpenseDto toDTO() {
         ExpenseDto expenseDto = new ExpenseDto();
         expenseDto.setExpenseId(this.getExpenseId());
-        expenseDto.setCurrencyCode(this.getCurrencyCode());
+        expenseDto.setCurrencyCode(this.getCurrencyCode() != null ? this.getCurrencyCode().name() : null);
         expenseDto.setDeletedBy(this.getDeletedBy());
         expenseDto.setCost(this.getCost());
         expenseDto.setDescription(this.getDescription());
@@ -62,8 +70,8 @@ public class Expense {
         expenseDto.setUpdatedAt(this.getUpdatedAt());
         expenseDto.setCommentsCount(this.getCommentsCount());
         expenseDto.setTransactionConfirmed(this.isTransactionConfirmed());
-        expenseDto.setExpenseType(this.getExpenseType().name());
-
+        expenseDto.setExpenseType(this.getExpenseType() != null ? this.getExpenseType().name() : null);
+        expenseDto.setPaidBy(this.getPaidBy() != null ? this.getPaidBy().getId() : null);
         expenseDto.setCategory(this.getCategory().toDTO());
         expenseDto.setUsers(this.getSplitDetails().stream().map(SplitDetails::toDTO).toList());
         return expenseDto;

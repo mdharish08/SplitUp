@@ -11,12 +11,13 @@ import lombok.Data;
 @Entity
 public class Category {
 
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long categoryId;
 
     private String name;
 
-    public CategoryDto toDTO(){
+    public CategoryDto toDTO() {
         CategoryDto dto = new CategoryDto();
         dto.setCategoryId(this.getCategoryId());
         dto.setCategoryName(this.getName());

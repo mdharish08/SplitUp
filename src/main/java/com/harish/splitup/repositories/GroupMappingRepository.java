@@ -9,7 +9,7 @@ public interface GroupMappingRepository extends JpaRepository<GroupMapping,Long>
 
     List<GroupMapping> findAllByMemberId(long memberId);
 
-    List<GroupMapping> findAllByGroupId(long groupId);
+    List<GroupMapping> findAllByGroupGroupId(long groupId);
 
-    List<GroupMapping> findAllByGroupIdIn(List<Long> groupIds);
+    List<GroupMapping> findAllByGroupGroupIdIn(List<Long> groupIds);
 }

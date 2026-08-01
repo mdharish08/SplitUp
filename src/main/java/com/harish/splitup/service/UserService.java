@@ -6,6 +6,7 @@ import com.harish.splitup.entities.*;
 import com.harish.splitup.repositories.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -30,79 +31,98 @@ public class UserService {
     @Autowired
     private GroupRepository groupRepository;
 
-    public List<UserGroupMeta> getUserGroupMeta(long userId){
+    @Transactional(readOnly = true)
+    public List<UserGroupMeta> getUserGroupMeta(long userId) {
         List<UserGroupMeta> result = new ArrayList<>();
-        List<Long> userGroupIds = this.groupMappingRepository.findAllByMemberId(userId).stream().map(GroupMapping::getGroupId).toList();
-        List<Group> userGroups = this.groupRepository.findAllById(userGroupIds);
-        for(Group group : userGroups){
-            List<GroupMapping> groupMembers = this.groupMappingRepository.findAllByGroupId(group.getGroupId());
-            List<Long> allMembersId = groupMembers.stream().map(GroupMapping::getMemberId).toList();
-            List<SplitUser> membersMeta = this.userRepository.findAllById(allMembersId);
-            Map<Long,Balance> userIdVsBalance = new HashMap<>();
-            this.balanceRepository.findAllByUserIdAndGroupGroupId(userId,group.getGroupId())
-                    .forEach(balance ->  userIdVsBalance.put(balance.getFriend().getId(),balance));
-            List<UserGroupMeta.GroupMemberMeta> membersBalance = new ArrayList<>();
-            for(SplitUser member : membersMeta){
-                UserGroupMeta.GroupMemberMeta memberMeta = new UserGroupMeta.GroupMemberMeta();
-                memberMeta.setId(member.getId());
-                memberMeta.setEmail(member.getEmailId());
-                memberMeta.setFirstName(member.getFirstName());
-                memberMeta.setLastName(member.getLastName());
-                memberMeta.setRegistrationStatus(memberMeta.getRegistrationStatus());
+        List<Long> userGroupIds = groupMappingRepository.findAllByMemberId(userId)
+                .stream().map(gm -> gm.getGroup().getGroupId()).toList();
+        List<Group> userGroups = groupRepository.findAllById(userGroupIds);
 
-                Balance memberGroupBalance = userIdVsBalance.get(member.getId());
-                memberMeta.setBalance(memberGroupBalance.balanceDto());
-                membersBalance.add(memberMeta);
+        for (Group group : userGroups) {
+            List<GroupMapping> groupMembers = groupMappingRepository.findAllByGroupGroupId(group.getGroupId());
+            List<Long> allMemberIds = groupMembers.stream().map(gm -> gm.getMember().getId()).toList();
+            List<SplitUser> membersMeta = userRepository.findAllById(allMemberIds);
+
+            Map<Long, Balance> balanceByFriendId = new HashMap<>();
+            balanceRepository.findAllByUserIdAndGroupGroupId(userId, group.getGroupId())
+                    .forEach(b -> balanceByFriendId.put(b.getFriend().getId(), b));
+
+            List<UserGroupMeta.GroupMemberMeta> membersBalance = new ArrayList<>();
+            for (SplitUser member : membersMeta) {
+                UserGroupMeta.GroupMemberMeta meta = new UserGroupMeta.GroupMemberMeta();
+                meta.setId(member.getId());
+                meta.setEmail(member.getEmailId());
+                meta.setFirstName(member.getFirstName());
+                meta.setLastName(member.getLastName());
+                meta.setRegistrationStatus(member.isEmailVerified() ? "verified" : "not_verified");
+
+                Balance memberBalance = balanceByFriendId.get(member.getId());
+                if (memberBalance != null) {
+                    meta.setBalance(memberBalance.balanceDto());
+                }
+                membersBalance.add(meta);
             }
+
             UserGroupMeta groupMeta = new UserGroupMeta();
             groupMeta.setId(group.getGroupId());
             groupMeta.setName(group.getGroupName());
             groupMeta.setCreatedAt(group.getCreatedAt());
             groupMeta.setUpdatedAt(group.getUpdatedAt());
-            groupMeta.setGroupType(group.getGroupType().name());
+            groupMeta.setGroupType(group.getGroupType() != null ? group.getGroupType().name() : null);
+            groupMeta.setCurrencyCode(group.getCurrencyCode() != null ? group.getCurrencyCode().name() : null);
             groupMeta.setMembers(membersBalance);
             result.add(groupMeta);
         }
         return result;
     }
 
-    public List<FriendsDto> getFriendsMeta(long userId){
+    @Transactional(readOnly = true)
+    public List<FriendsDto> getFriendsMeta(long userId) {
         List<FriendsDto> result = new ArrayList<>();
         List<Friends> friendsList = friendsRepository.findAllByUserId(userId);
         List<Balance> userBalance = balanceRepository.findAllByUserId(userId);
-        Map<Long,Balance> friendVsBalance = new HashMap<>();
-        Map<Long,List<Balance>> friendVsGroupBalance = new HashMap<>();
 
-        for(Balance balance : userBalance){
-            if(balance.getGroup().getGroupId() == 0){
-                friendVsBalance.put(balance.getFriend().getId() , balance);
-            }else{
-                friendVsGroupBalance.putIfAbsent(balance.getFriend().getId(),new ArrayList<>());
-                friendVsGroupBalance.get(balance.getFriend().getId()).add(balance);
+        Map<Long, Balance> friendVsBalance = new HashMap<>();
+        Map<Long, List<Balance>> friendVsGroupBalance = new HashMap<>();
+        for (Balance balance : userBalance) {
+            if (balance.getGroup() == null) {
+                friendVsBalance.put(balance.getFriend().getId(), balance);
+            } else {
+                friendVsGroupBalance.computeIfAbsent(balance.getFriend().getId(), k -> new ArrayList<>()).add(balance);
             }
         }
 
-        for(Friends friend : friendsList){
+        for (Friends friend : friendsList) {
+            // Bidirectional query returns rows where userId is either user or friend.
+            // Resolve which side is the actual friend of the current user.
+            SplitUser friendMeta = friend.getUser().getId().equals(userId)
+                    ? friend.getFriend()
+                    : friend.getUser();
+
+            if (friendMeta == null) continue;
+
             FriendsDto dto = new FriendsDto();
-            SplitUser friendMeta = friend.getFriend();
-            if(friendMeta != null){
-                dto.setId(friendMeta.getId());
-                dto.setLastName(friendMeta.getLastName());
-                dto.setFirstName(friendMeta.getFirstName());
-                dto.setUserName(friendMeta.getUsername());
-                dto.setRegistrationStatus(friendMeta.isEmailVerified() ? "verified" : "not_verified");
-                dto.setEmailId(friendMeta.getEmailId());
-                Balance balance = friendVsBalance.get(friendMeta.getId());
-                dto.setBalanceDto(balance.balanceDto());
-                List<FriendsDto.FriendsGroupDto> groupBalances = new ArrayList<>();
-                for(Balance groupBalance : friendVsGroupBalance.get(friend.getFriend().getId())){
-                    FriendsDto.FriendsGroupDto friendGroupDto = new FriendsDto.FriendsGroupDto();
-                    friendGroupDto.setBalanceDto(groupBalance.balanceDto());
-                    friendGroupDto.setGroupId(groupBalance.getGroup().getGroupId());
-                    groupBalances.add(friendGroupDto);
-                }
-                dto.setGroups(groupBalances);
+            dto.setId(friendMeta.getId());
+            dto.setFirstName(friendMeta.getFirstName());
+            dto.setLastName(friendMeta.getLastName());
+            dto.setUserName(friendMeta.getUsername());
+            dto.setEmailId(friendMeta.getEmailId());
+            dto.setRegistrationStatus(friendMeta.isEmailVerified() ? "verified" : "not_verified");
+
+            Balance personalBalance = friendVsBalance.get(friendMeta.getId());
+            if (personalBalance != null) {
+                dto.setBalanceDto(personalBalance.balanceDto());
             }
+
+            List<FriendsDto.FriendsGroupDto> groupBalances = new ArrayList<>();
+            List<Balance> groupBalanceList = friendVsGroupBalance.getOrDefault(friendMeta.getId(), List.of());
+            for (Balance groupBalance : groupBalanceList) {
+                FriendsDto.FriendsGroupDto groupDto = new FriendsDto.FriendsGroupDto();
+                groupDto.setBalanceDto(groupBalance.balanceDto());
+                groupDto.setGroupId(groupBalance.getGroup().getGroupId());
+                groupBalances.add(groupDto);
+            }
+            dto.setGroups(groupBalances);
             result.add(dto);
         }
         return result;

@@ -12,6 +12,7 @@ public class UserGroupMeta {
     private Long id;
     private String name;
     private String groupType;
+    private String currencyCode;
     private Timestamp createdAt;
     private Timestamp updatedAt;
     private List<GroupMemberMeta> members;

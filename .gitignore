@@ -2,3 +2,7 @@
 /shelf/
 /.idea/
 /target/
+
+# VS Code
+.vscode/
+.idea/

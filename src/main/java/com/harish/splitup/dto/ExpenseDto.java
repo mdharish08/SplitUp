@@ -2,6 +2,7 @@ package com.harish.splitup.dto;
 
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,7 +16,7 @@ public class ExpenseDto {
 
     private String expenseType;
 
-    private Double cost;
+    private BigDecimal cost;
 
     private String currencyCode;
 
@@ -26,6 +27,8 @@ public class ExpenseDto {
     private Long groupId;
 
     private String description;
+
+    private Long paidBy;
 
     private Long deletedBy;
 

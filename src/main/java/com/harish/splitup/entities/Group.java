@@ -1,11 +1,14 @@
+
 package com.harish.splitup.entities;
 
 import com.fasterxml.jackson.annotation.JsonIdentityInfo;
 import com.fasterxml.jackson.annotation.ObjectIdGenerators;
 import com.harish.splitup.constants.AppConstants;
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.sql.Timestamp;
 import java.util.List;
@@ -14,6 +17,8 @@ import java.util.List;
 @Entity
 @Table(name = "groups")
 @Builder(setterPrefix = "with")
+@NoArgsConstructor
+@AllArgsConstructor
 @JsonIdentityInfo(generator= ObjectIdGenerators.PropertyGenerator.class, property="groupId")
 public class Group {
 
@@ -34,7 +39,7 @@ public class Group {
 
     private long createdBy;
 
-    private long deletedBy;
+    private Long deletedBy;
 
     private Timestamp createdAt;
 

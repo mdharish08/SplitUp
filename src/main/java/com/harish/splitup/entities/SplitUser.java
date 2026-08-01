@@ -36,15 +36,13 @@ public class SplitUser implements UserDetails, Comparable<SplitUser>{
 
     private String userPassWord;
 
-    @Column(name = "emailId")
+    @Column(name = "emailId", unique = true, nullable = false)
     private String emailId;
 
     private int age;
 
     @Enumerated(EnumType.STRING)
     private AppConstants.Gender gender;
-
-    private boolean confirmed;
 
     private boolean isEmailVerified;
 

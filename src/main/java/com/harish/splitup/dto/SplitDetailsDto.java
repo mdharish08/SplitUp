@@ -2,6 +2,8 @@ package com.harish.splitup.dto;
 
 import lombok.Data;
 
+import java.math.BigDecimal;
+
 @Data
 public class SplitDetailsDto {
 
@@ -9,9 +11,9 @@ public class SplitDetailsDto {
 
     private UserDto user;
 
-    private Double paidShare = 0.0;
+    private BigDecimal paidShare = BigDecimal.ZERO;
 
-    private Double owedShare = 0.0;
+    private BigDecimal owedShare = BigDecimal.ZERO;
 
-    private Double netBalance = 0.0;
+    private BigDecimal netBalance = BigDecimal.ZERO;
 }

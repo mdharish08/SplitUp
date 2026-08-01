@@ -2,6 +2,7 @@ package com.harish.splitup.service;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
@@ -12,11 +13,13 @@ import java.util.Map;
 @Service
 public class JwtService {
 
-    private final String secret = "b1gkFvO12Rukv31wSpQMdMn5/9vCk+LWshH/VKKObeI=";
+    private final SecretKey key;
 
-    private final SecretKey key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+    public JwtService(@Value("${jwt.secret}") String secret) {
+        this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+    }
 
-    public String createToken(Map<String,String> claims , Date expiration, String subject){
+    public String createToken(Map<String, String> claims, Date expiration, String subject) {
         return Jwts.builder()
                 .claims()
                 .add(claims)
@@ -28,16 +31,19 @@ public class JwtService {
                 .compact();
     }
 
-    public String validateAndGetUserName(String token){
-        JwtParser parser = Jwts.parser()
-                .verifyWith(key)
-                .build();
-        Jws<Claims> jwt =  parser.parseSignedClaims(token);
-        Claims claims = jwt.getPayload();
-        Date expiration = claims.getExpiration();
-        if(expiration.after(new Date())){
-            return claims.getSubject();
+    public String validateAndGetUserName(String token) {
+        try {
+            Claims claims = Jwts.parser()
+                    .verifyWith(key)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+            if (claims.getExpiration().after(new Date())) {
+                return claims.getSubject();
+            }
+            return null;
+        } catch (JwtException e) {
+            return null;
         }
-        return null;
     }
 }

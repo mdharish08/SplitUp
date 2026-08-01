@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 
 @RestController
 @RequestMapping("api/v1/expense")
@@ -18,48 +19,45 @@ public class ExpenseController {
     ExpenseService expenseService;
 
     @GetMapping("/group/{groupId}")
-    public ResponseEntity<ResponseDto<List<ExpenseDto>>> getGroupExpenses(@PathVariable Long groupId){
-        ResponseDto<List<ExpenseDto>> responseDto = new ResponseDto<>();
-        try{
-            responseDto.setData(expenseService.getGroupExpenseDetails(groupId));
-            responseDto.setCode(0);
-            responseDto.setMessage("success");
-            return new ResponseEntity<>(responseDto, HttpStatus.OK);
-        }catch (Exception e){
-            responseDto.setCode(1);
-            responseDto.setMessage("failed");
-            return new ResponseEntity<>(responseDto, HttpStatus.INTERNAL_SERVER_ERROR);
+    public ResponseEntity<ResponseDto<List<ExpenseDto>>> getGroupExpenses(@PathVariable Long groupId) {
+        try {
+            List<ExpenseDto> data = expenseService.getGroupExpenseDetails(groupId);
+            return ResponseEntity.ok(ResponseDto.success(data));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ResponseDto.error(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ResponseDto.error(e.getMessage()));
         }
     }
 
-    @GetMapping("user/{userId}/friend/{friendId}")
-    public ResponseEntity<ResponseDto<List<ExpenseDto>>> getFriendsExpenses(@PathVariable Long userId,@PathVariable Long friendId){
-        ResponseDto<List<ExpenseDto>> responseDto = new ResponseDto<>();
-        try{
-            responseDto.setData(expenseService.getFriendExpenses(userId,friendId));
-            responseDto.setCode(0);
-            responseDto.setMessage("success");
-            return new ResponseEntity<>(responseDto, HttpStatus.OK);
-        }catch (Exception e){
-            responseDto.setCode(1);
-            responseDto.setMessage("failed");
-            return new ResponseEntity<>(responseDto, HttpStatus.INTERNAL_SERVER_ERROR);
+    @GetMapping("/user/{userId}/friend/{friendId}")
+    public ResponseEntity<ResponseDto<List<ExpenseDto>>> getFriendsExpenses(
+            @PathVariable Long userId, @PathVariable Long friendId) {
+        try {
+            List<ExpenseDto> data = expenseService.getFriendExpenses(userId, friendId);
+            return ResponseEntity.ok(ResponseDto.success(data));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ResponseDto.error(e.getMessage()));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ResponseDto.error(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ResponseDto.error(e.getMessage()));
         }
     }
 
     @PostMapping
-    public ResponseEntity<ResponseDto<ExpenseDto>> createExpense(@RequestBody ExpenseDto dto){
-        ResponseDto<ExpenseDto> responseDto = new ResponseDto<>();
-        try{
-            responseDto.setData(expenseService.createExpense(dto));
-            responseDto.setCode(0);
-            responseDto.setMessage("success");
-            return new ResponseEntity<>(responseDto, HttpStatus.OK);
-        }catch (Exception e){
-            responseDto.setCode(1);
-            responseDto.setMessage("failed");
-            return new ResponseEntity<>(responseDto, HttpStatus.INTERNAL_SERVER_ERROR);
+    public ResponseEntity<ResponseDto<ExpenseDto>> createExpense(@RequestBody ExpenseDto dto) {
+        try {
+            ExpenseDto created = expenseService.createExpense(dto);
+            return ResponseEntity.status(HttpStatus.CREATED).body(ResponseDto.success(created));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ResponseDto.error(e.getMessage()));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ResponseDto.error(e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(ResponseDto.error(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ResponseDto.error(e.getMessage()));
         }
     }
-
 }

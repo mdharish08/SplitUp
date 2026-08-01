@@ -2,6 +2,7 @@ package com.harish.splitup.entities;
 
 import com.harish.splitup.dto.SplitDetailsDto;
 import jakarta.persistence.*;
+import java.math.BigDecimal;
 import lombok.Data;
 
 import java.sql.Timestamp;
@@ -15,18 +16,18 @@ public class SplitDetails {
     private long splitId;
 
     @ManyToOne
-    @JoinColumn(name = "expenseId")
+    @JoinColumn(name = "expense_id")
     private Expense expense;
 
     @ManyToOne
     @JoinColumn(name = "user_id")
     private SplitUser user;
 
-    private double paidShare = 0.0;
+    private BigDecimal paidShare = BigDecimal.ZERO;
 
-    private double owedShare = 0.0;
+    private BigDecimal owedShare = BigDecimal.ZERO;
 
-    private double netBalance = 0.0;
+    private BigDecimal netBalance = BigDecimal.ZERO;
 
     private Timestamp createdAt;
 
@@ -35,7 +36,7 @@ public class SplitDetails {
     public SplitDetailsDto toDTO(){
         SplitDetailsDto splitDetailsDto = new SplitDetailsDto();
         splitDetailsDto.setUserId(this.getUser().getId());
-        splitDetailsDto.setOwedShare(this.getOwedShare());
+        splitDetailsDto.setPaidShare(this.getPaidShare());
         splitDetailsDto.setOwedShare(this.getOwedShare());
         splitDetailsDto.setNetBalance(this.getNetBalance());
         splitDetailsDto.setUser(this.getUser().toDTO());
