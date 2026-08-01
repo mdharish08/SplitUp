@@ -192,6 +192,19 @@ public class ExpenseService {
     }
 
     @Transactional(readOnly = true)
+    public List<ExpenseDto> getUserExpenses(Long userId) {
+        if (!userRepository.existsById(userId)) {
+            throw new NoSuchElementException("User not found: " + userId);
+        }
+        return expenseMappingsRepository.findAllExpensesByUserId(userId)
+                .stream()
+                .map(Expense::toDTO)
+                .sorted(Comparator.comparing(ExpenseDto::getCreatedAt,
+                        Comparator.nullsLast(Comparator.reverseOrder())))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public List<ExpenseDto> getFriendExpenses(Long userId, Long friendId) {
         if (userId == null || friendId == null) {
             throw new IllegalArgumentException("userId and friendId are required");

@@ -1,5 +1,6 @@
 package com.harish.splitup.controllers;
 
+import com.harish.splitup.dto.AddFriendRequestDto;
 import com.harish.splitup.dto.FriendsDto;
 import com.harish.splitup.dto.ResponseDto;
 import com.harish.splitup.service.UserService;
@@ -27,6 +28,23 @@ public class UserController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ResponseDto.error(e.getMessage()));
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ResponseDto.error(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ResponseDto.error(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/{userId}")
+    public ResponseEntity<ResponseDto<FriendsDto>> addFriend(@PathVariable long userId,
+                                                              @RequestBody AddFriendRequestDto req) {
+        try {
+            FriendsDto data = userService.addFriend(userId, req);
+            return ResponseEntity.status(HttpStatus.CREATED).body(ResponseDto.success(data));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ResponseDto.error(e.getMessage()));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ResponseDto.error(e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(ResponseDto.error(e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ResponseDto.error(e.getMessage()));
         }

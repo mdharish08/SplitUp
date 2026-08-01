@@ -11,10 +11,15 @@ import java.util.List;
 @Repository
 public interface ExpenseRepository extends JpaRepository<Expense,Long> {
 
-    @Query(value = "SELECT e.* FROM expense e JOIN split_details sd ON sd.expense_id = e.expense_id " +
-    "WHERE sd.user_id IN (:userId, :friendId) AND e.group_id IS NULL " +
-    "GROUP BY e.expense_id HAVING COUNT(DISTINCT sd.user_id) = 2", nativeQuery = true)
-    List<Expense> findAllExpenseByFriend(@Param("userId") long userId,@Param("friendId") long friendId);
+    @Query("SELECT DISTINCT e FROM Expense e JOIN e.splitDetails sd WHERE sd.user.id = :userId AND e.trashed = false ORDER BY e.createdAt DESC")
+    List<Expense> findAllByUserId(@Param("userId") Long userId);
+
+    @Query(value = "SELECT e.* FROM expense e " +
+    "JOIN split_details sd ON sd.expense_id = e.expense_id " +
+    "WHERE sd.user_id IN (:userId, :friendId) " +
+    "GROUP BY e.expense_id HAVING COUNT(DISTINCT sd.user_id) = 2 " +
+    "ORDER BY e.created_at DESC", nativeQuery = true)
+    List<Expense> findAllExpenseByFriend(@Param("userId") long userId, @Param("friendId") long friendId);
 
 
 }

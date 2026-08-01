@@ -39,9 +39,11 @@ public class JwtTokenCreationFilter extends OncePerRequestFilter {
         Authentication authentication = authManager.authenticate(token);
         if(authentication.isAuthenticated()){
             Calendar calendar = Calendar.getInstance();
-            calendar.add(Calendar.MINUTE, 10);
+            calendar.add(Calendar.HOUR, 24);
             SplitUser user = (SplitUser) authentication.getPrincipal();
-            String jwtToken =  jwtService.createToken( new HashMap<>(), calendar.getTime(),user.getEmailId());
+            HashMap<String, String> claims = new HashMap<>();
+            claims.put("userId", String.valueOf(user.getId()));
+            String jwtToken = jwtService.createToken(claims, calendar.getTime(), user.getEmailId());
             response.setHeader("Authorization","Bearer " + jwtToken);
         }
     }

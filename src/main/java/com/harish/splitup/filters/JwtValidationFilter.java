@@ -25,9 +25,13 @@ public class JwtValidationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
         String token = extractBearerToken(request);
         if (token != null) {
-            Authentication auth = authManager.authenticate(new JwtAuthenticationToken(token));
-            if (auth.isAuthenticated()) {
-                SecurityContextHolder.getContext().setAuthentication(auth);
+            try {
+                Authentication auth = authManager.authenticate(new JwtAuthenticationToken(token));
+                if (auth.isAuthenticated()) {
+                    SecurityContextHolder.getContext().setAuthentication(auth);
+                }
+            } catch (Exception ignored) {
+                // Invalid or expired token — leave SecurityContext empty; Spring Security will return 401
             }
         }
         filterChain.doFilter(request, response);

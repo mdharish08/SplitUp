@@ -26,6 +26,8 @@ public class ExpenseDto {
 
     private Long groupId;
 
+    private String groupName;
+
     private String description;
 
     private Long paidBy;

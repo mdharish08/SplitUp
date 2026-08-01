@@ -30,6 +30,18 @@ public class ExpenseController {
         }
     }
 
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<ResponseDto<List<ExpenseDto>>> getUserExpenses(@PathVariable Long userId) {
+        try {
+            List<ExpenseDto> data = expenseService.getUserExpenses(userId);
+            return ResponseEntity.ok(ResponseDto.success(data));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ResponseDto.error(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ResponseDto.error(e.getMessage()));
+        }
+    }
+
     @GetMapping("/user/{userId}/friend/{friendId}")
     public ResponseEntity<ResponseDto<List<ExpenseDto>>> getFriendsExpenses(
             @PathVariable Long userId, @PathVariable Long friendId) {
