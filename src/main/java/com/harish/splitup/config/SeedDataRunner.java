@@ -1,26 +1,21 @@
 package com.harish.splitup.config;
 
-    import java.math.BigDecimal;
-    import java.util.ArrayList;
-    import java.util.List;
-    import java.util.stream.Stream;
-
-    import org.springframework.boot.CommandLineRunner;
-    import org.springframework.stereotype.Component;
-
-    import com.harish.splitup.dto.AddFriendRequestDto;
-    import com.harish.splitup.dto.ExpenseDto;
-    import com.harish.splitup.dto.SignupRequestDto;
-    import com.harish.splitup.dto.SplitDetailsDto;
-    import com.harish.splitup.dto.UserGroupMeta;
-    import com.harish.splitup.entities.Category;
-    import com.harish.splitup.repositories.CategoryRepository;
+import com.harish.splitup.dto.*;
+import com.harish.splitup.entities.Category;
+import com.harish.splitup.repositories.CategoryRepository;
 import com.harish.splitup.repositories.UserRepository;
 import com.harish.splitup.service.ExpenseService;
 import com.harish.splitup.service.GroupService;
 import com.harish.splitup.service.UserService;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.stereotype.Component;
 
-    @Component
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Stream;
+
+@Component
 public class SeedDataRunner implements CommandLineRunner {
 
     private final UserRepository userRepository;
@@ -45,7 +40,11 @@ public class SeedDataRunner implements CommandLineRunner {
         if (categoryRepository.count() == 0) {
             Stream.of("Food & Drink", "Transportation", "Entertainment",
                             "Utilities", "Rent", "Shopping", "Other")
-                    .map(name -> { Category c = new Category(); c.setName(name); return c; })
+                    .map(name -> {
+                        Category c = new Category();
+                        c.setName(name);
+                        return c;
+                    })
                     .forEach(categoryRepository::save);
         }
 
@@ -57,14 +56,15 @@ public class SeedDataRunner implements CommandLineRunner {
         System.out.println("\n  [Seed] Seeding demo data...");
 
         // ── 1. Users ─────────────────────────────────────────────────────────
-        record U(String first, String last, String email, String password) {}
+        record U(String first, String last, String email, String password) {
+        }
 
         List<U> defs = List.of(
-                new U("Alice", "Johnson",  "alice@splitup.dev",  "Alice@123"),
-                new U("Bob",   "Smith",    "bob@splitup.dev",    "Bob@123"),
-                new U("Carol", "Davis",    "carol@splitup.dev",  "Carol@123"),
-                new U("David", "Lee",      "david@splitup.dev",  "David@123"),
-                new U("Eva",   "Martinez", "eva@splitup.dev",    "Eva@123")
+                new U("Alice", "Johnson", "alice@splitup.dev", "Alice@123"),
+                new U("Bob", "Smith", "bob@splitup.dev", "Bob@123"),
+                new U("Carol", "Davis", "carol@splitup.dev", "Carol@123"),
+                new U("David", "Lee", "david@splitup.dev", "David@123"),
+                new U("Eva", "Martinez", "eva@splitup.dev", "Eva@123")
         );
 
         Long[] ids = new Long[defs.size()];
@@ -80,12 +80,16 @@ public class SeedDataRunner implements CommandLineRunner {
 
         Long aId = ids[0], bId = ids[1], cId = ids[2], dId = ids[3], eId = ids[4];
         String aE = defs.get(0).email(), bE = defs.get(1).email(),
-               cE = defs.get(2).email(), dE = defs.get(3).email(),
-               eE = defs.get(4).email();
+                cE = defs.get(2).email(), dE = defs.get(3).email(),
+                eE = defs.get(4).email();
 
         // ── 2. Friendships ────────────────────────────────────────────────────
-        addFriend(aId, bE); addFriend(aId, cE); addFriend(aId, dE); addFriend(aId, eE);
-        addFriend(bId, cE); addFriend(bId, dE);
+        addFriend(aId, bE);
+        addFriend(aId, cE);
+        addFriend(aId, dE);
+        addFriend(aId, eE);
+        addFriend(bId, cE);
+        addFriend(bId, dE);
         addFriend(cId, dE);
         addFriend(eId, bE);
 
@@ -103,38 +107,38 @@ public class SeedDataRunner implements CommandLineRunner {
                 members(bId, bE, cId, cE, dId, dE, eId, eE));
 
         // ── 4. Expenses ───────────────────────────────────────────────────────
-        Category food   = findCat("Food");
+        Category food = findCat("Food");
         Category travel = findCat("Transportation");
-        Category util   = findCat("Utilities");
-        Category entmt  = findCat("Entertainment");
+        Category util = findCat("Utilities");
+        Category entmt = findCat("Entertainment");
 
         // Personal
-        expense("Dinner at Olive Garden",  food,   60.00, aId, null,
+        expense("Dinner at Olive Garden", food, 60.00, aId, null,
                 split(aId, 60, 30), split(bId, 0, 30));
-        expense("Morning coffee run",       food,   16.00, bId, null,
-                split(bId, 16,  8), split(aId, 0,  8));
-        expense("Cinema — Dune Part Two",  entmt,   45.00, cId, null,
+        expense("Morning coffee run", food, 16.00, bId, null,
+                split(bId, 16, 8), split(aId, 0, 8));
+        expense("Cinema — Dune Part Two", entmt, 45.00, cId, null,
                 split(cId, 45, 15), split(aId, 0, 15), split(dId, 0, 15));
 
         // Summer Trip
         if (tripId != null) {
-            expense("Hotel — 2 nights",    travel, 240.00, aId, tripId,
+            expense("Hotel — 2 nights", travel, 240.00, aId, tripId,
                     split(aId, 240, 60), split(bId, 0, 60), split(cId, 0, 60), split(dId, 0, 60));
-            expense("Fuel for road trip",  travel,  80.00, bId, tripId,
-                    split(bId,  80, 20), split(aId, 0, 20), split(cId, 0, 20), split(dId, 0, 20));
-            expense("Supermarket haul",    food,    96.00, cId, tripId,
-                    split(cId,  96, 24), split(aId, 0, 24), split(bId, 0, 24), split(dId, 0, 24));
-            expense("Six Flags tickets",   entmt,  160.00, dId, tripId,
+            expense("Fuel for road trip", travel, 80.00, bId, tripId,
+                    split(bId, 80, 20), split(aId, 0, 20), split(cId, 0, 20), split(dId, 0, 20));
+            expense("Supermarket haul", food, 96.00, cId, tripId,
+                    split(cId, 96, 24), split(aId, 0, 24), split(bId, 0, 24), split(dId, 0, 24));
+            expense("Six Flags tickets", entmt, 160.00, dId, tripId,
                     split(dId, 160, 40), split(aId, 0, 40), split(bId, 0, 40), split(cId, 0, 40));
         }
 
         // Apartment 4B
         if (aptId != null) {
-            expense("Electricity + water", util,  90.00, eId, aptId,
+            expense("Electricity + water", util, 90.00, eId, aptId,
                     split(eId, 90, 30), split(aId, 0, 30), split(bId, 0, 30));
-            expense("Monthly internet",    util,  60.00, aId, aptId,
+            expense("Monthly internet", util, 60.00, aId, aptId,
                     split(aId, 60, 20), split(eId, 0, 20), split(bId, 0, 20));
-            expense("Weekly groceries",    food,  75.00, bId, aptId,
+            expense("Weekly groceries", food, 75.00, bId, aptId,
                     split(bId, 75, 25), split(aId, 0, 25), split(eId, 0, 25));
         }
 
@@ -142,7 +146,7 @@ public class SeedDataRunner implements CommandLineRunner {
         if (movieId != null) {
             expense("Snacks for movie night", entmt, 40.00, bId, movieId,
                     split(bId, 40, 10), split(cId, 0, 10), split(dId, 0, 10), split(eId, 0, 10));
-            expense("Netflix + Prime",         entmt, 48.00, cId, movieId,
+            expense("Netflix + Prime", entmt, 48.00, cId, movieId,
                     split(cId, 48, 12), split(bId, 0, 12), split(dId, 0, 12), split(eId, 0, 12));
         }
 
@@ -151,11 +155,11 @@ public class SeedDataRunner implements CommandLineRunner {
         System.out.println("╔══════════════════════════════════════════════════════════════╗");
         System.out.println("║             SEED COMPLETE — Demo Credentials                ║");
         System.out.println("╠══════════════════════════════════════════════════════════════╣");
-        System.out.printf( "║  %-16s %-26s %-12s %-5s ║%n", "Name", "Email", "Password", "ID");
+        System.out.printf("║  %-16s %-26s %-12s %-5s ║%n", "Name", "Email", "Password", "ID");
         System.out.println("║  ──────────────── ────────────────────────── ──────────── ───── ║");
         for (int i = 0; i < defs.size(); i++) {
             U u = defs.get(i);
-            String tag  = i == 0 ? "★ " : "  ";
+            String tag = i == 0 ? "★ " : "  ";
             String name = u.first() + " " + u.last();
             System.out.printf("║ %s%-16s %-26s %-12s %-5s ║%n", tag, name, u.email(), u.password(), ids[i]);
         }
