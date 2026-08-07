@@ -8,9 +8,17 @@ import { LinkTo } from '@ember/routing';
 import RouteTemplate from 'ember-route-template';
 import BalanceBadge from 'splitup-ui/components/balance-badge';
 
+const AVATAR_COLORS = ['#f59e0b','#10b981','#8b5cf6','#f43f5e','#0ea5e9','#f97316','#6366f1'];
+function friendAvatarColor(id) {
+  const hash = Number(id ?? 0);
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
 export class FriendsFriendTemplate extends Component {
   @service auth;
   @service api;
+  @service router;
+  @service toast;
 
   @tracked friend = this.args.model.friend;
   @tracked expenses = this.args.model.expenses;
@@ -18,6 +26,10 @@ export class FriendsFriendTemplate extends Component {
   @tracked settleAmount = '';
   @tracked isSettling = false;
   @tracked settleError = null;
+
+  get avatarColor() {
+    return friendAvatarColor(this.friend?.id);
+  }
 
   get balanceAmount() {
     return parseFloat(this.friend?.balanceDto?.amount ?? 0);
@@ -69,6 +81,7 @@ export class FriendsFriendTemplate extends Component {
         }
       }
 
+      const payerIsMe = String(exp.paidBy) === String(this.auth.userId);
       const enriched = {
         ...exp,
         myShareLabel,
@@ -76,6 +89,7 @@ export class FriendsFriendTemplate extends Component {
         dayNum: d.getDate(),
         monthShort: d.toLocaleDateString('en-US', { month: 'short' }).toUpperCase(),
         formattedCost: `${exp.currencyCode ?? ''} ${parseFloat(exp.cost ?? 0).toFixed(2)}`.trim(),
+        payerName: payerIsMe ? 'you' : `${this.friend?.firstName ?? 'them'}`,
       };
 
       if (!cur || cur.key !== key) {
@@ -86,6 +100,17 @@ export class FriendsFriendTemplate extends Component {
     }
 
     return groups;
+  }
+
+  @action async unfriend() {
+    if (!confirm(`Remove ${this.friend.firstName} as a friend?`)) return;
+    try {
+      await this.api.delete(`/api/v1/friends/${this.auth.userId}/${this.friend.id}`);
+      this.toast.success(`${this.friend.firstName} removed from friends`);
+      this.router.transitionTo('friends.index');
+    } catch (e) {
+      alert(e.message);
+    }
   }
 
   @action toggleSettleForm() {
@@ -153,38 +178,47 @@ export class FriendsFriendTemplate extends Component {
   }
 
   <template>
-    <div class="page-back">
-      <LinkTo @route="index">← Dashboard</LinkTo>
-    </div>
-
-    {{#if this.friend}}
-      <div class="friend-detail-header">
-        <div class="friend-detail-avatar">
-          {{this.friend.firstName.[0]}}{{this.friend.lastName.[0]}}
-        </div>
-        <div class="friend-detail-info">
-          <h2>{{this.friend.firstName}} {{this.friend.lastName}}</h2>
-          <p class="friend-detail-email">{{this.friend.emailId}}</p>
-          {{#if this.friend.balanceDto}}
-            <BalanceBadge @balance={{this.friend.balanceDto}} />
-          {{/if}}
-        </div>
-        {{#if this.balanceAmount}}
-          <button type="button" class="btn-outline-teal" {{on "click" this.toggleSettleForm}}>
-            {{if this.showSettleForm "Cancel" "Settle up"}}
-          </button>
-        {{/if}}
+    <div class="page-content page-content--narrow">
+      <div class="page-back">
+        <LinkTo @route="friends.index">← Friends</LinkTo>
       </div>
 
-      {{#if this.showSettleForm}}
-        <form {{on "submit" this.recordSettlement}} class="form-card settle-form">
-          {{#if this.settleError}}
-            <div class="error-banner">{{this.settleError}}</div>
+      {{#if this.friend}}
+        <div class="friend-detail-header">
+          <div class="friend-detail-avatar" style="background:{{this.avatarColor}}; color:#111110;">
+            {{this.friend.firstName.[0]}}{{this.friend.lastName.[0]}}
+          </div>
+          <div class="friend-detail-info">
+            <p class="page-eyebrow">Friend</p>
+            <h1 class="friend-detail-name">{{this.friend.firstName}} {{this.friend.lastName}}</h1>
+            <p class="friend-detail-email">{{this.friend.emailId}}</p>
+          </div>
+          {{#if this.friend.balanceDto}}
+            <div class="friend-detail-balance">
+              <p class="friend-detail-balance-label">Balance</p>
+              <BalanceBadge @balance={{this.friend.balanceDto}} />
+            </div>
           {{/if}}
-          <p class="form-hint">
-            {{if this.owedToYou "They pay you" "You pay them"}} to settle up.
-          </p>
-          <div class="form-row">
+          <div class="friend-detail-header-actions">
+            {{#if this.balanceAmount}}
+              <button type="button" class="btn-primary" {{on "click" this.toggleSettleForm}}>
+                {{if this.showSettleForm "Cancel" "Settle up"}}
+              </button>
+            {{/if}}
+            <button type="button" class="btn-danger" {{on "click" this.unfriend}}>
+              Remove
+            </button>
+          </div>
+        </div>
+
+        {{#if this.showSettleForm}}
+          <form {{on "submit" this.recordSettlement}} class="form-card">
+            {{#if this.settleError}}
+              <div class="error-banner">{{this.settleError}}</div>
+            {{/if}}
+            <p class="form-hint" style="margin-bottom:16px;">
+              {{if this.owedToYou "They pay you" "You pay them"}} to settle up.
+            </p>
             <div class="form-group">
               <label for="settle-amount">Amount ({{this.currencyCode}})</label>
               <input
@@ -196,51 +230,58 @@ export class FriendsFriendTemplate extends Component {
                 {{on "input" this.updateSettleAmount}}
               />
             </div>
-          </div>
-          <div class="form-actions">
-            <button type="submit" class="btn-primary" disabled={{this.isSettling}}>
-              {{if this.isSettling "Recording…" "Record Payment"}}
-            </button>
-          </div>
-        </form>
+            <div class="form-actions">
+              <button type="submit" class="btn-primary" disabled={{this.isSettling}}>
+                {{if this.isSettling "Recording…" "Record Payment"}}
+              </button>
+            </div>
+          </form>
+        {{/if}}
       {{/if}}
-    {{/if}}
 
-    {{! ── Unified transaction timeline ── }}
-    <h3 class="section-title">Transactions</h3>
+      {{! ── Transactions ── }}
+      <p class="page-eyebrow" style="margin-top:32px; margin-bottom:12px;">Shared Expenses</p>
 
-    {{#if this.groupedExpenses.length}}
-      {{#each this.groupedExpenses as |month|}}
-        <div class="group-month-separator">{{month.label}}</div>
-        {{#each month.items as |exp|}}
-          <div class="group-exp-row">
-            <div class="group-exp-date">
-              <span class="group-exp-day">{{exp.dayNum}}</span>
-              <span class="group-exp-month">{{exp.monthShort}}</span>
+      {{#if this.groupedExpenses.length}}
+        <div class="expense-table-header">
+          <span class="expense-table-col-label--right expense-table-col-label">Date</span>
+          <span class="expense-table-col-label">Category</span>
+          <span class="expense-table-col-label">Description</span>
+          <span class="expense-table-col-label--right expense-table-col-label">Amount</span>
+        </div>
+        {{#each this.groupedExpenses as |month|}}
+          <div class="expense-month-group">
+            <div class="expense-month-header">
+              <span class="expense-month-label">{{month.label}}</span>
+              <div class="expense-month-line"></div>
             </div>
-            <div class="group-exp-icon">
-              {{#if exp.groupName}}🏠{{else}}💰{{/if}}
-            </div>
-            <div class="group-exp-body">
-              <div class="friend-exp-desc-row">
-                <p class="group-exp-desc">{{exp.description}}</p>
-                {{#if exp.groupName}}
-                  <span class="friend-exp-group-badge">{{exp.groupName}}</span>
-                {{/if}}
+            {{#each month.items as |exp|}}
+              <div class="expense-row" style="cursor:default;">
+                <span class="expense-row-date">{{exp.monthShort}} {{exp.dayNum}}</span>
+                <span><span class="expense-cat-pill">{{exp.category.categoryName}}</span></span>
+                <div class="expense-row-desc-wrap">
+                  <div class="expense-row-desc-line">
+                    <span class="expense-row-desc">{{exp.description}}</span>
+                    {{#if exp.groupName}}
+                      <span class="expense-cat-pill" style="background:#fffbeb; color:#d97706;">{{exp.groupName}}</span>
+                    {{/if}}
+                  </div>
+                  <p class="expense-row-paid-by">paid by {{exp.payerName}}</p>
+                </div>
+                <div class="expense-row-amount-wrap">
+                  <p class="expense-row-amount">{{exp.formattedCost}}</p>
+                  <p class="expense-row-share expense-row-share--{{exp.myShareType}}">{{exp.myShareLabel}}</p>
+                </div>
               </div>
-              <p class="group-exp-payer">{{exp.formattedCost}}</p>
-            </div>
-            <div class="group-exp-share group-exp-share--{{exp.myShareType}}">
-              {{exp.myShareLabel}}
-            </div>
+            {{/each}}
           </div>
         {{/each}}
-      {{/each}}
-    {{else}}
-      <div class="empty-state">
-        <p>No transactions yet.</p>
-      </div>
-    {{/if}}
+      {{else}}
+        <div class="empty-state">
+          <p>No transactions yet.</p>
+        </div>
+      {{/if}}
+    </div>
   </template>
 }
 

@@ -1,10 +1,12 @@
-import Route from '@ember/routing/route';
+import AuthenticatedRoute from '../authenticated';
 import { service } from '@ember/service';
 
-export default class FriendsIndexRoute extends Route {
-  @service router;
+export default class FriendsIndexRoute extends AuthenticatedRoute {
+  @service api;
+  @service auth;
 
-  beforeModel() {
-    this.router.transitionTo('index');
+  async model() {
+    const response = await this.api.get(`/api/v1/friends/${this.auth.userId}`);
+    return { friends: response?.data ?? [] };
   }
 }

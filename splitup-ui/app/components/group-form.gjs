@@ -116,13 +116,15 @@ export default class GroupForm extends Component {
   }
 
   <template>
+    <div class="page-content" style="max-width:640px;">
     <div class="page-back">
-      <LinkTo @route="groups">← Groups</LinkTo>
+      <LinkTo @route="groups.index">← Groups</LinkTo>
     </div>
 
-    <div class="group-form-header">
-      <h2>Create a group</h2>
-      <p class="group-form-sub">Split expenses with people you choose</p>
+    <div style="margin-bottom:28px;">
+      <p class="page-eyebrow">Create</p>
+      <h1 class="page-title">New Group</h1>
+      <p class="group-form-sub" style="color:var(--text-muted); font-size:.9rem; margin-top:6px;">Split expenses with people you choose</p>
     </div>
 
     {{#if this.errorMessage}}
@@ -267,8 +269,9 @@ export default class GroupForm extends Component {
         <button type="submit" class="btn-primary" disabled={{this.isLoading}}>
           {{if this.isLoading "Creating…" "Create Group"}}
         </button>
-        <LinkTo @route="groups" class="btn-secondary">Cancel</LinkTo>
+        <LinkTo @route="groups.index" class="btn-secondary">Cancel</LinkTo>
       </div>
     </form>
+    </div>{{! end .page-content }}
   </template>
 }

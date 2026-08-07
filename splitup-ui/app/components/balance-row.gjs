@@ -1,7 +1,12 @@
 import Component from '@glimmer/component';
 import { LinkTo } from '@ember/routing';
-import { htmlSafe } from '@ember/template';
-import { avatarColor } from 'splitup-ui/utils/avatar-color';
+
+const AVATAR_COLORS = ['#f59e0b','#10b981','#8b5cf6','#f43f5e','#0ea5e9','#f97316','#6366f1'];
+
+function avatarBg(id) {
+  const hash = Number(id ?? 0);
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
 
 export default class BalanceRow extends Component {
   get initials() {
@@ -10,9 +15,8 @@ export default class BalanceRow extends Component {
     return (first + last).toUpperCase();
   }
 
-  get avatarStyle() {
-    // avatarColor() only ever returns a fixed hex value from our own palette, never user input.
-    return htmlSafe(`background-color: ${avatarColor(this.args.friend?.id)};`);
+  get color() {
+    return avatarBg(this.args.friend?.id);
   }
 
   get displayAmount() {
@@ -23,14 +27,19 @@ export default class BalanceRow extends Component {
     return this.args.amount > 0;
   }
 
+  get amountClass() {
+    return this.isOwed ? 'balance-row-amount--owed' : 'balance-row-amount--owe';
+  }
+
   <template>
     <LinkTo @route="friends.friend" @model={{@friend.id}} class="balance-row">
-      <span class="balance-row-avatar" style={{this.avatarStyle}}>{{this.initials}}</span>
-      <span class="balance-row-name">{{@friend.firstName}} {{@friend.lastName}}</span>
-      <span class="balance-row-amount {{if this.isOwed 'text-teal' 'text-orange'}}">
-        <span class="balance-row-caption">{{if this.isOwed "owes you" "you owe"}}</span>
-        {{this.displayAmount}}
-      </span>
+      <div class="balance-row-avatar" style="background:{{this.color}}; color:#111110;">{{this.initials}}</div>
+      <div class="balance-row-info">
+        <p class="balance-row-name">{{@friend.firstName}} {{@friend.lastName}}</p>
+        <p class="balance-row-amount {{this.amountClass}}">
+          {{if this.isOwed "owes you" "you owe"}} {{this.displayAmount}}
+        </p>
+      </div>
     </LinkTo>
   </template>
 }

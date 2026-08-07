@@ -1,41 +1,57 @@
 package com.harish.splitup.service;
 
-import com.harish.splitup.constants.AppConstants;
-import com.harish.splitup.dto.ExpenseDto;
-import com.harish.splitup.dto.SplitDetailsDto;
-import com.harish.splitup.entities.*;
-import com.harish.splitup.repositories.*;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Instant;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.harish.splitup.constants.AppConstants;
+import com.harish.splitup.dto.ExpenseDto;
+import com.harish.splitup.dto.SplitDetailsDto;
+import com.harish.splitup.entities.Balance;
+import com.harish.splitup.entities.Category;
+import com.harish.splitup.entities.Expense;
+import com.harish.splitup.entities.ExpenseMapping;
+import com.harish.splitup.entities.Group;
+import com.harish.splitup.entities.SplitDetails;
+import com.harish.splitup.entities.SplitUser;
+import com.harish.splitup.repositories.BalanceRepository;
+import com.harish.splitup.repositories.CategoryRepository;
+import com.harish.splitup.repositories.ExpenseMappingsRepository;
+import com.harish.splitup.repositories.ExpenseRepository;
+import com.harish.splitup.repositories.GroupRepository;
+import com.harish.splitup.repositories.UserRepository;
 
 @Service
 public class ExpenseService {
 
-    @Autowired
-    GroupRepository groupRepository;
+    private final GroupRepository groupRepository;
+    private final ExpenseRepository expenseRepository;
+    private final UserRepository userRepository;
+    private final CategoryRepository categoryRepository;
+    private final ExpenseMappingsRepository expenseMappingsRepository;
+    private final BalanceRepository balanceRepository;
 
-    @Autowired
-    ExpenseRepository expenseRepository;
-
-    @Autowired
-    UserRepository userRepository;
-
-    @Autowired
-    CategoryRepository categoryRepository;
-
-    @Autowired
-    ExpenseMappingsRepository expenseMappingsRepository;
-
-    @Autowired
-    BalanceRepository balanceRepository;
+    public ExpenseService(GroupRepository groupRepository, ExpenseRepository expenseRepository,
+            UserRepository userRepository, CategoryRepository categoryRepository,
+            ExpenseMappingsRepository expenseMappingsRepository, BalanceRepository balanceRepository) {
+        this.groupRepository = groupRepository;
+        this.expenseRepository = expenseRepository;
+        this.userRepository = userRepository;
+        this.categoryRepository = categoryRepository;
+        this.expenseMappingsRepository = expenseMappingsRepository;
+        this.balanceRepository = balanceRepository;
+    }
 
     @Transactional(readOnly = true)
     public List<ExpenseDto> getGroupExpenseDetails(Long groupId) {
@@ -145,7 +161,8 @@ public class ExpenseService {
                 .filter(id -> !id.equals(paidUser.getId()))
                 .toList();
 
-        if (friendIds.isEmpty()) return;
+        if (friendIds.isEmpty())
+            return;
 
         // Fetch only balances scoped to the same group (or personal if no group)
         Map<Long, Balance> paidToFriendMap;
@@ -170,7 +187,8 @@ public class ExpenseService {
 
         List<Balance> toSave = new ArrayList<>();
         for (SplitDetails split : splitDetails) {
-            if (split.getUser().getId().equals(paidUser.getId())) continue;
+            if (split.getUser().getId().equals(paidUser.getId()))
+                continue;
 
             // owedShare is always positive: the amount this friend owes the payer
             BigDecimal owed = split.getOwedShare();
@@ -182,7 +200,8 @@ public class ExpenseService {
                 throw new IllegalStateException(
                         "Balance record missing for pair (" + paidUser.getId() + ", " + friendId + ")");
             }
-            // Payer is now owed more → increase; friend owes more → decrease their opposite balance
+            // Payer is now owed more → increase; friend owes more → decrease their opposite
+            // balance
             paidVsFriend.setAmount(paidVsFriend.getAmount().add(owed));
             friendVsPaid.setAmount(friendVsPaid.getAmount().subtract(owed));
             toSave.add(paidVsFriend);
@@ -193,8 +212,8 @@ public class ExpenseService {
 
     @Transactional(readOnly = true)
     public List<ExpenseDto> getUserExpenses(Long userId) {
-        if (!userRepository.existsById(userId)) {
-            throw new NoSuchElementException("User not found: " + userId);
+        if (userId == null) {
+            throw new IllegalArgumentException("userId is required");
         }
         return expenseMappingsRepository.findAllExpensesByUserId(userId)
                 .stream()

@@ -6,7 +6,13 @@ export default class IndexRoute extends AuthenticatedRoute {
   @service auth;
 
   async model() {
-    const response = await this.api.get(`/api/v1/friends/${this.auth.userId}`);
-    return { friends: response?.data ?? [] };
+    const [friendsResponse, categoriesResponse] = await Promise.all([
+      this.api.get(`/api/v1/friends/${this.auth.userId}`),
+      this.api.get('/api/v1/categories'),
+    ]);
+    return {
+      friends: friendsResponse?.data ?? [],
+      categories: categoriesResponse?.data ?? [],
+    };
   }
 }

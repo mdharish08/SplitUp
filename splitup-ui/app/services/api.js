@@ -4,6 +4,7 @@ import { service } from '@ember/service';
 export default class ApiService extends Service {
   @service auth;
   @service router;
+  @service toast;
 
   async _fetch(path, options = {}) {
     const headers = { 'Content-Type': 'application/json' };
@@ -15,7 +16,11 @@ export default class ApiService extends Service {
       headers: { ...headers, ...options.headers },
     });
     if (response.status === 401 || response.status === 403) {
+      const wasAuthenticated = this.auth.isAuthenticated;
       this.auth.logout();
+      if (wasAuthenticated) {
+        this.toast?.error('Your session has expired. Please sign in again.');
+      }
       this.router.transitionTo('login');
       return null;
     }
@@ -37,5 +42,23 @@ export default class ApiService extends Service {
       method: 'POST',
       body: JSON.stringify(body),
     });
+  }
+
+  put(path, body) {
+    return this._fetch(path, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    });
+  }
+
+  patch(path, body) {
+    return this._fetch(path, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    });
+  }
+
+  delete(path) {
+    return this._fetch(path, { method: 'DELETE' });
   }
 }

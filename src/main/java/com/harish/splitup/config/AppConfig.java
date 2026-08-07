@@ -1,13 +1,7 @@
 package com.harish.splitup.config;
 
-import com.harish.splitup.auth.JwtAuthenticationProvider;
-import com.harish.splitup.entities.Category;
-import com.harish.splitup.filters.JwtTokenCreationFilter;
-import com.harish.splitup.filters.JwtValidationFilter;
-import com.harish.splitup.repositories.CategoryRepository;
-import com.harish.splitup.repositories.UserRepository;
-import com.harish.splitup.service.JwtService;
-import org.springframework.boot.CommandLineRunner;
+import java.util.List;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -25,8 +19,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-import java.util.List;
-import java.util.stream.Stream;
+import com.harish.splitup.auth.JwtAuthenticationProvider;
+import com.harish.splitup.filters.JwtTokenCreationFilter;
+import com.harish.splitup.filters.JwtValidationFilter;
+import com.harish.splitup.repositories.UserRepository;
+import com.harish.splitup.service.JwtService;
 
 @Configuration
 @EnableWebSecurity
@@ -90,32 +87,4 @@ public class AppConfig {
                 .build();
     }
 
-    @Bean
-    public CommandLineRunner seedInitialUser(PasswordEncoder passwordEncoder) {
-        return args -> {
-            if (repository.findByEmailId("mohamedharishupm@gmail.com").isEmpty()) {
-                repository.save(com.harish.splitup.entities.SplitUser.builder()
-                        .withFirstName("harish")
-                        .withUserPassWord(passwordEncoder.encode("mdHarish"))
-                        .withEmailId("mohamedharishupm@gmail.com")
-                        .build());
-            }
-        };
-    }
-
-    @Bean
-    public CommandLineRunner seedCategories(CategoryRepository categoryRepository) {
-        return args -> {
-            if (categoryRepository.count() == 0) {
-                Stream.of("Food & Drink", "Transportation", "Entertainment",
-                                "Utilities", "Rent", "Shopping", "Other")
-                        .map(name -> {
-                            Category c = new Category();
-                            c.setName(name);
-                            return c;
-                        })
-                        .forEach(categoryRepository::save);
-            }
-        };
-    }
 }

@@ -45,45 +45,73 @@ export class LoginTemplate extends Component {
 
   <template>
     <div class="auth-page">
-      <div class="auth-card">
-        <h1 class="auth-logo">SplitUp</h1>
-        <p class="auth-tagline">Split expenses, not friendships</p>
-
-        {{#if this.errorMessage}}
-          <div class="error-banner">{{this.errorMessage}}</div>
-        {{/if}}
-
-        <form {{on "submit" this.handleSubmit}}>
-          <div class="form-group">
-            <label for="email">Email</label>
-            <input
-              id="email"
-              type="email"
-              value={{this.email}}
-              {{on "input" this.updateEmail}}
-              placeholder="you@example.com"
-              required
-            />
+      {{! ── Left panel ── }}
+      <div class="auth-left">
+        <div class="auth-left-brand">
+          <div class="auth-left-brand-icon">S</div>
+          <span class="auth-left-brand-name">SplitUp</span>
+        </div>
+        <div>
+          <p class="auth-left-eyebrow">Expense splitting, reimagined</p>
+          <h1 class="auth-left-heading">Split smarter.<br/>Stay friends.</h1>
+          <p class="auth-left-subtext">Track shared expenses, see who owes what, and settle up — no awkward conversations.</p>
+        </div>
+        <div class="auth-left-stats">
+          <div class="auth-stat-card">
+            <p class="auth-stat-value auth-stat-value--green">$162</p>
+            <p class="auth-stat-label">you're owed</p>
           </div>
-          <div class="form-group">
-            <label for="password">Password</label>
-            <input
-              id="password"
-              type="password"
-              value={{this.password}}
-              {{on "input" this.updatePassword}}
-              required
-            />
+          <div class="auth-stat-card">
+            <p class="auth-stat-value auth-stat-value--orange">$74</p>
+            <p class="auth-stat-label">you owe</p>
           </div>
-          <button type="submit" class="btn-primary btn-full" disabled={{this.isLoading}}>
-            {{if this.isLoading "Signing in…" "Sign In"}}
-          </button>
-        </form>
+        </div>
+      </div>
 
-        <p class="auth-footer">
-          No account?
-          <LinkTo @route="signup">Sign up</LinkTo>
-        </p>
+      {{! ── Right form ── }}
+      <div class="auth-right">
+        <div class="auth-form-wrap">
+          <h2 class="auth-heading">Welcome back</h2>
+          <p class="auth-subtext">Sign in to your SplitUp account</p>
+
+          {{#if this.errorMessage}}
+            <div class="error-banner">{{this.errorMessage}}</div>
+          {{/if}}
+
+          <form {{on "submit" this.handleSubmit}}>
+            <div class="form-group">
+              <label for="email">Email</label>
+              <input
+                id="email"
+                type="email"
+                value={{this.email}}
+                {{on "input" this.updateEmail}}
+                placeholder="you@example.com"
+                required
+              />
+            </div>
+            <div class="form-group" style="margin-bottom:28px">
+              <label for="password">Password</label>
+              <input
+                id="password"
+                type="password"
+                value={{this.password}}
+                {{on "input" this.updatePassword}}
+                placeholder="••••••••"
+                required
+              />
+            </div>
+            <button type="submit" class="btn-primary btn-full" disabled={{this.isLoading}}>
+              {{if this.isLoading "Signing in…" "Sign In →"}}
+            </button>
+          </form>
+
+          <p class="auth-footer">
+            No account?
+            <LinkTo @route="signup" class="auth-link">Create account</LinkTo>
+          </p>
+          <p class="auth-footer-note">Secured with 256-bit encryption</p>
+        </div>
       </div>
     </div>
   </template>

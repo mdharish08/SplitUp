@@ -1,6 +1,6 @@
 import { module, test } from 'qunit';
 import { setupRenderingTest } from 'splitup-ui/tests/helpers';
-import { render, fillIn, click } from '@ember/test-helpers';
+import { render, fillIn, click, triggerEvent } from '@ember/test-helpers';
 import Service from '@ember/service';
 import { ExpensesNewTemplate } from 'splitup-ui/templates/expenses/new';
 
@@ -12,12 +12,10 @@ class MockAuthService extends Service {
 
 class MockApiService extends Service {
   posts = [];
-
   post(path, body) {
     this.posts.push({ path, body });
     return Promise.resolve({ code: 0, data: { id: 99 } });
   }
-
   get() {
     return Promise.resolve({ code: 0, data: [] });
   }
@@ -25,13 +23,14 @@ class MockApiService extends Service {
 
 class MockRouterService extends Service {
   transitions = [];
-
   transitionTo(routeName, ...args) {
     this.transitions.push({ routeName, args });
   }
+  on() {}
+  off() {}
 }
 
-const MODEL = {
+const BASE_MODEL = {
   categories: [
     { categoryId: 1, categoryName: 'Food & Drink' },
     { categoryId: 2, categoryName: 'Transportation' },
@@ -40,6 +39,7 @@ const MODEL = {
   friends: [
     { id: 2, firstName: 'Jane', lastName: 'Doe', emailId: 'jane@example.com' },
   ],
+  preselectedGroupId: null,
 };
 
 module('Integration | Template | expenses/new', function (hooks) {
@@ -49,75 +49,85 @@ module('Integration | Template | expenses/new', function (hooks) {
     this.owner.register('service:auth', MockAuthService);
     this.owner.register('service:api', MockApiService);
     this.owner.register('service:router', MockRouterService);
-    this.model = MODEL;
+    this.model = BASE_MODEL;
   });
 
-  test('the description field accepts typed input', async function (assert) {
+  test('renders the expense form', async function (assert) {
     await render(<template><ExpensesNewTemplate @model={{this.model}} /></template>);
 
-    await fillIn('#expense-desc', 'Dinner at Olive Garden');
-
-    assert.dom('#expense-desc').hasValue('Dinner at Olive Garden');
+    assert.dom('h2').hasText('Add Expense');
+    assert.dom('#expense-desc').exists();
+    assert.dom('#cost').exists();
+    assert.dom('#category').exists();
+    assert.dom('button[type="submit"]').hasText('Add Expense');
   });
 
-  test('the amount field accepts typed input', async function (assert) {
+  test('EQUAL split shows a "Split equally among N people" hint', async function (assert) {
     await render(<template><ExpensesNewTemplate @model={{this.model}} /></template>);
 
-    await fillIn('#cost', '250');
-
-    assert.dom('#cost').hasValue('250');
-  });
-
-  test('selecting a category updates the select value', async function (assert) {
-    await render(<template><ExpensesNewTemplate @model={{this.model}} /></template>);
-
-    await fillIn('#category', '2');
-
-    assert.dom('#category').hasValue('2');
-  });
-
-  test('checking a friend adds them as a participant and to the payer list', async function (assert) {
-    await render(<template><ExpensesNewTemplate @model={{this.model}} /></template>);
-
-    assert.dom('[data-test-participant-checkbox="2"]').isNotChecked();
-
-    await click('[data-test-participant-checkbox="2"]');
-
-    assert.dom('[data-test-participant-checkbox="2"]').isChecked();
-    assert.dom('#payer option[value="2"]').exists('friend appears as a payer option');
-  });
-
-  test('unchecking a friend removes them from participants', async function (assert) {
-    await render(<template><ExpensesNewTemplate @model={{this.model}} /></template>);
-
-    await click('[data-test-participant-checkbox="2"]');
-    await click('[data-test-participant-checkbox="2"]');
-
-    assert.dom('[data-test-participant-checkbox="2"]').isNotChecked();
-    assert.dom('#payer option[value="2"]').doesNotExist();
-  });
-
-  test('exact split mode allows typing a per-person share without losing focus', async function (assert) {
-    await render(<template><ExpensesNewTemplate @model={{this.model}} /></template>);
-
+    // EQUAL is the default split type
     await fillIn('#cost', '100');
-    await click('[data-test-participant-checkbox="2"]');
-    await click('[data-test-split-exact]');
 
-    const input = document.querySelector('[data-test-share-input="2"]');
-    await fillIn(input, '4');
-    assert.strictEqual(document.activeElement, input, 'input keeps focus after first digit');
-
-    await fillIn(input, '40');
-    assert.strictEqual(document.activeElement, input, 'input keeps focus after second digit');
-    assert.dom('[data-test-share-input="2"]').hasValue('40');
+    assert.dom('.form-hint').containsText('Split equally among');
+    assert.dom('.form-hint').containsText('person');
   });
 
-  test('submitting a valid personal expense posts to the API and transitions to index', async function (assert) {
+  test('clicking "%" button switches to PERCENTAGE mode and shows % inputs', async function (assert) {
+    await render(<template><ExpensesNewTemplate @model={{this.model}} /></template>);
+
+    const pctBtn = [...document.querySelectorAll('button[type="button"]')].find(
+      (b) => b.textContent.trim() === '%',
+    );
+    await click(pctBtn);
+
+    assert.dom('.split-inputs').exists();
+    assert.dom('.split-unit').hasText('%');
+    assert.dom('.form-hint').containsText('100%');
+  });
+
+  test('clicking "Shares" button switches to SHARES mode', async function (assert) {
+    await render(<template><ExpensesNewTemplate @model={{this.model}} /></template>);
+
+    const sharesBtn = [...document.querySelectorAll('button[type="button"]')].find(
+      (b) => b.textContent.trim() === 'Shares',
+    );
+    await click(sharesBtn);
+
+    assert.dom('.split-unit').hasText('shares');
+    assert.dom('.form-hint').containsText('Total shares');
+  });
+
+  test('clicking "Exact" button switches to EXACT mode and shows remaining hint', async function (assert) {
+    await render(<template><ExpensesNewTemplate @model={{this.model}} /></template>);
+
+    const exactBtn = [...document.querySelectorAll('button[type="button"]')].find(
+      (b) => b.textContent.trim() === 'Exact',
+    );
+    await click(exactBtn);
+
+    assert.dom('.split-inputs').exists();
+    assert.dom('.form-hint').containsText('Remaining to assign');
+  });
+
+  test('submitting without selecting a category shows "Select a category" error', async function (assert) {
     await render(<template><ExpensesNewTemplate @model={{this.model}} /></template>);
 
     await fillIn('#expense-desc', 'Groceries');
-    await fillIn('#cost', '100');
+    await fillIn('#cost', '50');
+    // Do NOT select a category
+    await click('button[type="submit"]');
+
+    assert.dom('.error-banner').hasText('Select a category');
+
+    const api = this.owner.lookup('service:api');
+    assert.strictEqual(api.posts.length, 0, 'no API call should be made on validation error');
+  });
+
+  test('submitting a valid form posts to the API and navigates to index', async function (assert) {
+    await render(<template><ExpensesNewTemplate @model={{this.model}} /></template>);
+
+    await fillIn('#expense-desc', 'Lunch');
+    await fillIn('#cost', '40');
     await fillIn('#category', '1');
     await click('button[type="submit"]');
 
@@ -126,41 +136,80 @@ module('Integration | Template | expenses/new', function (hooks) {
 
     assert.strictEqual(api.posts.length, 1, 'one POST was made');
     assert.strictEqual(api.posts[0].path, '/api/v1/expense');
-    assert.strictEqual(api.posts[0].body.description, 'Groceries');
-    assert.strictEqual(api.posts[0].body.cost, 100);
+    assert.strictEqual(api.posts[0].body.description, 'Lunch');
+    assert.strictEqual(api.posts[0].body.cost, 40);
     assert.strictEqual(router.transitions[0]?.routeName, 'index');
   });
 
-  test('submitting without a category shows an error and does not call the API', async function (assert) {
-    await render(<template><ExpensesNewTemplate @model={{this.model}} /></template>);
-
-    await fillIn('#expense-desc', 'Groceries');
-    await fillIn('#cost', '100');
-    await click('button[type="submit"]');
-
-    const api = this.owner.lookup('service:api');
-    assert.strictEqual(api.posts.length, 0, 'no POST was made');
-    assert.dom('.error-banner').hasText('Select a category');
-  });
-
-  test('selecting a group auto-populates participants from group members', async function (assert) {
+  test('group context banner is shown when preselectedGroupId is set', async function (assert) {
     this.model = {
-      ...MODEL,
+      ...BASE_MODEL,
+      preselectedGroupId: '5',
       groups: [
         {
           id: 5,
-          name: 'Trip',
+          name: 'Trip to Paris',
+          currencyCode: 'EUR',
           members: [
             { id: 1, firstName: 'You', lastName: '' },
-            { id: 3, firstName: 'Alex', lastName: 'Kim' },
+            { id: 2, firstName: 'Jane', lastName: 'Doe' },
           ],
         },
       ],
     };
 
     await render(<template><ExpensesNewTemplate @model={{this.model}} /></template>);
-    await fillIn('#group-select', '5');
 
-    assert.dom('#payer option[value="3"]').exists('group member appears as payer option');
+    assert.dom('.expense-group-context').exists();
+    assert.dom('.expense-group-context').containsText('Trip to Paris');
+  });
+
+  test('participant list auto-populates from group members when a group is preselected', async function (assert) {
+    this.model = {
+      ...BASE_MODEL,
+      preselectedGroupId: '5',
+      groups: [
+        {
+          id: 5,
+          name: 'Trip to Paris',
+          currencyCode: 'EUR',
+          members: [
+            { id: 1, firstName: 'You', lastName: '' },
+            { id: 2, firstName: 'Jane', lastName: 'Doe' },
+          ],
+        },
+      ],
+    };
+
+    await render(<template><ExpensesNewTemplate @model={{this.model}} /></template>);
+
+    // Group member rows appear in the participant-list
+    assert.dom('.participant-member-row').exists({ count: 2 });
+    assert.dom('.participant-member-name').containsText('Jane');
+  });
+
+  test('selecting a group from the dropdown auto-populates participants', async function (assert) {
+    this.model = {
+      ...BASE_MODEL,
+      groups: [
+        {
+          id: 7,
+          name: 'Flatmates',
+          currencyCode: 'USD',
+          members: [
+            { id: 1, firstName: 'You', lastName: '' },
+            { id: 3, firstName: 'Chris', lastName: 'Park' },
+          ],
+        },
+      ],
+    };
+
+    await render(<template><ExpensesNewTemplate @model={{this.model}} /></template>);
+
+    await fillIn('#group-select', '7');
+    await triggerEvent('#group-select', 'change');
+
+    // Payer dropdown should now include group member Chris
+    assert.dom('#payer option[value="3"]').exists('group member appears as a payer option');
   });
 });

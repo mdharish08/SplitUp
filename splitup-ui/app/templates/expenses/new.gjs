@@ -23,7 +23,7 @@ export class ExpensesNewTemplate extends Component {
   @tracked selectedCategoryId = '';
   @tracked groupId = '';
   @tracked payerId = this.auth.userId;
-  @tracked splitType = 'EQUAL';
+  @tracked splitType = 'EQUAL'; // EQUAL | EXACT | PERCENTAGE | SHARES
   @tracked participants = [this.selfParticipant];
   @tracked errorMessage = null;
   @tracked isLoading = false;
@@ -142,14 +142,63 @@ export class ExpensesNewTemplate extends Component {
     );
   }
 
+  get totalShares() {
+    return this.participants.reduce((sum, p) => sum + (parseFloat(p.owedShare) || 0), 0);
+  }
+
+  get totalPercentage() {
+    return this.participants.reduce((sum, p) => sum + (parseFloat(p.owedShare) || 0), 0);
+  }
+
   get splitUsers() {
     const count = this.participants.length || 1;
+    const total = this.totalCost;
+
     return this.participants.map((p) => {
-      const owedShare =
-        this.splitType === 'EQUAL' ? this.totalCost / count : parseFloat(p.owedShare) || 0;
-      const paidShare = String(p.userId) === String(this.payerId) ? this.totalCost : 0;
+      let owedShare;
+      const entered = parseFloat(p.owedShare) || 0;
+
+      switch (this.splitType) {
+        case 'EQUAL':
+          owedShare = total / count;
+          break;
+        case 'EXACT':
+          owedShare = entered;
+          break;
+        case 'PERCENTAGE':
+          owedShare = (entered / 100) * total;
+          break;
+        case 'SHARES': {
+          const shares = this.totalShares || 1;
+          owedShare = (entered / shares) * total;
+          break;
+        }
+        default:
+          owedShare = total / count;
+      }
+
+      const paidShare = String(p.userId) === String(this.payerId) ? total : 0;
       return { userId: p.userId, paidShare, owedShare, netBalance: paidShare - owedShare };
     });
+  }
+
+  get splitIsValid() {
+    if (this.splitType === 'EXACT') {
+      return Math.abs(this.totalCost - this.totalEntered) <= 0.01;
+    }
+    if (this.splitType === 'PERCENTAGE') {
+      return Math.abs(this.totalPercentage - 100) <= 0.01;
+    }
+    return true;
+  }
+
+  get totalPercentageFormatted() {
+    return this.totalPercentage.toFixed(1);
+  }
+
+  get equalSplitAmount() {
+    const count = this.participants.length || 1;
+    return (this.totalCost / count).toFixed(2);
   }
 
   @action async handleSubmit(event) {
@@ -171,8 +220,12 @@ export class ExpensesNewTemplate extends Component {
       this.errorMessage = 'Add at least one participant';
       return;
     }
-    if (this.splitType === 'EXACT' && Math.abs(this.totalCost - this.totalEntered) > 0.01) {
-      this.errorMessage = `Shares must add up to ${this.totalCost.toFixed(2)} (currently ${this.totalEntered.toFixed(2)})`;
+    if (!this.splitIsValid) {
+      if (this.splitType === 'EXACT') {
+        this.errorMessage = `Amounts must add up to ${this.totalCost.toFixed(2)} (currently ${this.totalEntered.toFixed(2)})`;
+      } else if (this.splitType === 'PERCENTAGE') {
+        this.errorMessage = `Percentages must add up to 100% (currently ${this.totalPercentage.toFixed(1)}%)`;
+      }
       return;
     }
 
@@ -205,13 +258,17 @@ export class ExpensesNewTemplate extends Component {
   }
 
   <template>
+    <div class="page-content" style="max-width:720px;">
     <div class="page-back">
       <a href="#" {{on "click" this.goBack}}>
-        ← {{if this.args.model.preselectedGroupId this.selectedGroup.name "Dashboard"}}
+        ← {{if this.args.model.preselectedGroupId this.selectedGroup.name "All Expenses"}}
       </a>
     </div>
 
-    <h2>Add Expense</h2>
+    <div style="margin-bottom:28px;">
+      <p class="page-eyebrow">Create</p>
+      <h1 class="page-title">Add Expense</h1>
+    </div>
 
     {{! Group context banner — shown when launched from a group page }}
     {{#if this.selectedGroup}}
@@ -362,10 +419,26 @@ export class ExpensesNewTemplate extends Component {
             type="button"
             class={{if (eq this.splitType "EXACT") "btn-primary" "btn-secondary"}}
             {{on "click" (fn this.setSplitType "EXACT")}}
-          >Exact amounts</button>
+          >Exact</button>
+          <button
+            type="button"
+            class={{if (eq this.splitType "PERCENTAGE") "btn-primary" "btn-secondary"}}
+            {{on "click" (fn this.setSplitType "PERCENTAGE")}}
+          >%</button>
+          <button
+            type="button"
+            class={{if (eq this.splitType "SHARES") "btn-primary" "btn-secondary"}}
+            {{on "click" (fn this.setSplitType "SHARES")}}
+          >Shares</button>
         </div>
 
-        {{#if (eq this.splitType "EXACT")}}
+        {{#if (eq this.splitType "EQUAL")}}
+          <p class="form-hint">
+            Split equally among {{this.participants.length}}
+            {{if (eq this.participants.length 1) "person" "people"}}
+            · {{this.currencyCode}} {{this.equalSplitAmount}} each
+          </p>
+        {{else if (eq this.splitType "EXACT")}}
           <div class="split-inputs">
             {{#each this.participants key="userId" as |p|}}
               <div class="split-row">
@@ -383,11 +456,45 @@ export class ExpensesNewTemplate extends Component {
             {{/each}}
           </div>
           <p class="form-hint">Remaining to assign: {{this.remainingAmount}}</p>
-        {{else}}
-          <p class="form-hint">
-            Split equally among {{this.participants.length}}
-            {{if (eq this.participants.length 1) "person" "people"}}
-          </p>
+        {{else if (eq this.splitType "PERCENTAGE")}}
+          <div class="split-inputs">
+            {{#each this.participants key="userId" as |p|}}
+              <div class="split-row">
+                <span class="split-name">{{p.firstName}} {{p.lastName}}</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  placeholder="%"
+                  class="share-input"
+                  value={{p.owedShare}}
+                  {{on "input" (fn this.updateOwedShare p.userId)}}
+                />
+                <span class="split-unit">%</span>
+              </div>
+            {{/each}}
+          </div>
+          <p class="form-hint">Total: {{this.totalPercentageFormatted}}% (must equal 100%)</p>
+        {{else if (eq this.splitType "SHARES")}}
+          <div class="split-inputs">
+            {{#each this.participants key="userId" as |p|}}
+              <div class="split-row">
+                <span class="split-name">{{p.firstName}} {{p.lastName}}</span>
+                <input
+                  type="number"
+                  step="1"
+                  min="0"
+                  placeholder="shares"
+                  class="share-input"
+                  value={{p.owedShare}}
+                  {{on "input" (fn this.updateOwedShare p.userId)}}
+                />
+                <span class="split-unit">shares</span>
+              </div>
+            {{/each}}
+          </div>
+          <p class="form-hint">Total shares: {{this.totalShares}}</p>
         {{/if}}
       </div>
 
@@ -398,6 +505,7 @@ export class ExpensesNewTemplate extends Component {
         <button type="button" class="btn-secondary" {{on "click" this.goBack}}>Cancel</button>
       </div>
     </form>
+    </div>{{! end .page-content }}
   </template>
 }
 

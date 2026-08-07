@@ -7,6 +7,8 @@ import { eq, fn } from '@ember/helper';
 import { LinkTo } from '@ember/routing';
 import RouteTemplate from 'ember-route-template';
 
+const GROUP_TYPES = ['HOME', 'TRIP', 'COUPLE', 'OTHER'];
+
 const AVATAR_COLORS = [
   '#e9856d', '#5cbca6', '#7b68ee', '#ff8c00',
   '#6495ed', '#20b2aa', '#dc143c', '#c084fc',
@@ -24,6 +26,18 @@ export class GroupsGroupTemplate extends Component {
   @tracked isSettling = false;
   @tracked settleError = null;
 
+  // Edit group
+  @tracked showEditModal = false;
+  @tracked editName = '';
+  @tracked editDescription = '';
+  @tracked editGroupType = '';
+  @tracked editCurrencyCode = '';
+  @tracked isEditSaving = false;
+  @tracked editError = null;
+
+  groupTypes = GROUP_TYPES;
+  currencies = ['USD', 'EUR', 'INR', 'GBP', 'JPY'];
+
   get settlementCategory() {
     const categories = this.args.model.categories ?? [];
     return categories.find((c) => c.categoryName === 'Other') ?? categories[0];
@@ -35,6 +49,36 @@ export class GroupsGroupTemplate extends Component {
 
   get groupIcon() {
     return (this.group?.name?.[0] ?? '?').toUpperCase();
+  }
+
+  get groupInitials() {
+    return (this.group?.name ?? '').slice(0, 2).toUpperCase();
+  }
+
+  get groupColor() {
+    const name = this.group?.name ?? '';
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    const colors = ['#f59e0b','#10b981','#8b5cf6','#f43f5e','#0ea5e9','#f97316','#6366f1'];
+    return colors[Math.abs(hash) % colors.length];
+  }
+
+  get myBalance() {
+    const me = (this.group?.members ?? []).find((m) => m.id === this.currentUserId);
+    return parseFloat(me?.balance?.amount ?? 0) || 0;
+  }
+
+  get myBalanceLabel() {
+    const b = this.myBalance;
+    if (Math.abs(b) < 0.01) return 'settled up';
+    const currency = this.group?.currencyCode ?? '';
+    return `${currency} ${Math.abs(b).toFixed(2)}`;
+  }
+
+  get myBalanceBadgeClass() {
+    if (this.myBalance > 0) return 'balance-badge--positive';
+    if (this.myBalance < 0) return 'balance-badge--negative';
+    return 'balance-badge--neutral';
   }
 
   get membersWithMeta() {
@@ -120,6 +164,85 @@ export class GroupsGroupTemplate extends Component {
     });
   }
 
+  // ── Edit group ──
+  @action openEditModal() {
+    this.editName = this.group.name ?? '';
+    this.editDescription = this.group.description ?? '';
+    this.editGroupType = this.group.groupType ?? 'OTHER';
+    this.editCurrencyCode = this.group.currencyCode ?? 'USD';
+    this.editError = null;
+    this.showEditModal = true;
+  }
+
+  @action closeEditModal() {
+    this.showEditModal = false;
+    this.editError = null;
+  }
+
+  @action updateEditField(field, event) {
+    this[field] = event.target.value;
+  }
+
+  @action async saveGroupEdit(event) {
+    event.preventDefault();
+    this.editError = null;
+    this.isEditSaving = true;
+    try {
+      const body = {
+        name: this.editName,
+        description: this.editDescription,
+        groupType: this.editGroupType,
+        currencyCode: this.editCurrencyCode,
+      };
+      const response = await this.api.put(`/api/v1/group/${this.group.id}`, body);
+      if (response?.code !== 0) throw new Error(response?.error ?? 'Failed to update group');
+      // Refresh group data
+      const groupsResponse = await this.api.get(`/api/v1/user/${this.auth.userId}/group`);
+      const allGroups = groupsResponse?.data ?? [];
+      this.group = allGroups.find((g) => String(g.id) === String(this.group.id)) ?? this.group;
+      this.showEditModal = false;
+    } catch (e) {
+      this.editError = e.message;
+    } finally {
+      this.isEditSaving = false;
+    }
+  }
+
+  // ── Delete group ──
+  @action async deleteGroup() {
+    if (!confirm(`Delete "${this.group.name}"? This cannot be undone.`)) return;
+    try {
+      await this.api.delete(`/api/v1/group/${this.group.id}`);
+      this.router.transitionTo('groups.index');
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
+  // ── Leave group ──
+  @action async leaveGroup() {
+    if (!confirm(`Leave "${this.group.name}"?`)) return;
+    try {
+      await this.api.delete(`/api/v1/group/${this.group.id}/member/${this.auth.userId}`);
+      this.router.transitionTo('groups.index');
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
+  // ── Remove member ──
+  @action async removeMember(member) {
+    if (!confirm(`Remove ${member.firstName} from this group?`)) return;
+    try {
+      await this.api.delete(`/api/v1/group/${this.group.id}/member/${member.id}`);
+      const groupsResponse = await this.api.get(`/api/v1/user/${this.auth.userId}/group`);
+      const allGroups = groupsResponse?.data ?? [];
+      this.group = allGroups.find((g) => String(g.id) === String(this.group.id)) ?? this.group;
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
   @action settleFirst() {
     const first = this.membersWithMeta.find((m) => !m.isMe && m.hasBalance);
     if (first) this.toggleSettle(first);
@@ -194,57 +317,70 @@ export class GroupsGroupTemplate extends Component {
   }
 
   <template>
-    <div class="page-back">
-      <LinkTo @route="groups">← Groups</LinkTo>
-    </div>
+    <div class="page-content">
+      <div class="page-back">
+        <LinkTo @route="groups.index">← Groups</LinkTo>
+      </div>
 
     {{#if this.group}}
       {{! ── Group header ── }}
       <div class="group-detail-header">
-        <div class="group-detail-icon">{{this.groupIcon}}</div>
+        <div class="group-detail-icon" style="background:{{this.groupColor}}; color:#111110;">
+          {{this.groupInitials}}
+        </div>
         <div class="group-detail-info">
-          <h2>{{this.group.name}}</h2>
-          <p class="group-detail-sub">
-            {{this.group.members.length}} people · {{this.group.groupType}} · {{this.group.currencyCode}}
+          <p class="page-eyebrow">Group</p>
+          <h1 class="group-detail-name">{{this.group.name}}</h1>
+          <p class="group-detail-meta">
+            {{this.group.members.length}} members · {{this.group.currencyCode}}
           </p>
-          {{#if this.group.description}}
-            <p class="group-description">{{this.group.description}}</p>
-          {{/if}}
+        </div>
+        <div class="group-detail-balance">
+          <p class="group-detail-balance-label">Your balance</p>
+          <span class="balance-badge {{this.myBalanceBadgeClass}}">{{this.myBalanceLabel}}</span>
         </div>
         <div class="group-detail-actions">
-          <button type="button" class="btn-orange" {{on "click" this.addExpense}}>+ Add an expense</button>
-          <button type="button" class="btn-outline-teal" {{on "click" this.settleFirst}}>
-            Settle up
-          </button>
+          <button type="button" class="btn-primary" {{on "click" this.addExpense}}>+ Add Expense</button>
+          <button type="button" class="btn-secondary" {{on "click" this.openEditModal}}>Edit</button>
+          <button type="button" class="btn-secondary" {{on "click" this.leaveGroup}}>Leave</button>
+          <button type="button" class="btn-danger" {{on "click" this.deleteGroup}}>Delete</button>
         </div>
       </div>
 
       {{! ── Two-column body ── }}
-      <div class="group-page-layout">
+      <div class="group-detail-layout">
 
         {{! ── Left: expense feed ── }}
-        <div class="group-expenses-col">
+        <div>
+          <p class="page-eyebrow" style="margin-bottom:12px;">Expenses</p>
           {{#if this.groupedExpenses.length}}
+            <div class="expense-table-header">
+              <span class="expense-table-col-label--right expense-table-col-label">Date</span>
+              <span class="expense-table-col-label">Category</span>
+              <span class="expense-table-col-label">Description</span>
+              <span class="expense-table-col-label--right expense-table-col-label">Amount</span>
+            </div>
             {{#each this.groupedExpenses as |month|}}
-              <div class="group-month-separator">{{month.label}}</div>
-              {{#each month.items as |exp|}}
-                <div class="group-exp-row">
-                  <div class="group-exp-date">
-                    <span class="group-exp-day">{{exp.dayNum}}</span>
-                    <span class="group-exp-month">{{exp.monthShort}}</span>
-                  </div>
-                  <div class="group-exp-icon">
-                    {{#if (eq exp.expenseType "PAYMENT")}}💸{{else}}💰{{/if}}
-                  </div>
-                  <div class="group-exp-body">
-                    <p class="group-exp-desc">{{exp.description}}</p>
-                    <p class="group-exp-payer">{{exp.payerName}} paid {{exp.formattedCost}}</p>
-                  </div>
-                  <div class="group-exp-share group-exp-share--{{exp.myShareType}}">
-                    {{exp.myShareLabel}}
-                  </div>
+              <div class="expense-month-group">
+                <div class="expense-month-header">
+                  <span class="expense-month-label">{{month.label}}</span>
+                  <div class="expense-month-line"></div>
                 </div>
-              {{/each}}
+                {{#each month.items as |exp|}}
+                  <div class="expense-row" style="cursor:default;">
+                    <span class="expense-row-date">{{exp.monthShort}} {{exp.dayNum}}</span>
+                    <span><span class="expense-cat-pill">{{exp.category.categoryName}}</span></span>
+                    <div class="expense-row-desc-wrap">
+                      <span class="expense-row-desc">{{exp.description}}</span>
+                      <p class="expense-row-paid-by">{{exp.payerName}} paid {{exp.formattedCost}}</p>
+                    </div>
+                    <div class="expense-row-amount-wrap">
+                      <p class="expense-row-amount">{{exp.formattedCost}}</p>
+                      <p class="expense-row-share expense-row-share--{{exp.myShareType}}">{{exp.myShareLabel}}</p>
+                    </div>
+                  </div>
+                {{/each}}
+              </div>
             {{/each}}
           {{else}}
             <div class="empty-state">
@@ -254,83 +390,124 @@ export class GroupsGroupTemplate extends Component {
           {{/if}}
         </div>
 
-        {{! ── Right: GROUP BALANCES panel ── }}
-        <div class="group-balances-col">
-          <div class="balances-panel">
-            <h4 class="balances-panel-title">GROUP BALANCES</h4>
+        {{! ── Right: member balances panel ── }}
+        <div class="group-member-panel">
+          <p class="group-member-panel-title">Member Balances</p>
 
-            {{#if this.settleError}}
-              <div class="error-banner settle-error">{{this.settleError}}</div>
-            {{/if}}
+          {{#if this.settleError}}
+            <div class="error-banner">{{this.settleError}}</div>
+          {{/if}}
 
-            {{#each this.membersWithMeta as |member|}}
-              <div class="balance-member-row">
-                <div
-                  class="balance-member-avatar"
-                  style="background: {{member.avatarColor}}"
-                >
-                  {{member.initials}}
-                </div>
-                <div class="balance-member-info">
-                  <p class="balance-member-name">
-                    {{member.firstName}} {{member.lastName}}
-                    {{#if member.isMe}}<span class="chip-you-label">(you)</span>{{/if}}
-                  </p>
-                  {{#if member.hasBalance}}
-                    {{#if member.owedToMe}}
-                      <p class="balance-member-status balance-member-status--negative">
-                        owes {{member.balanceCurrency}} {{member.absBalance}}
-                      </p>
-                    {{else}}
-                      <p class="balance-member-status balance-member-status--positive">
-                        gets back {{member.balanceCurrency}} {{member.absBalance}}
-                      </p>
-                    {{/if}}
+          {{#each this.membersWithMeta as |member|}}
+            <div class="group-member-row">
+              <div class="group-member-avatar" style="background:{{member.avatarColor}}; color:#111110;">
+                {{member.initials}}
+              </div>
+              <div class="group-member-info">
+                <p class="group-member-name">
+                  {{member.firstName}} {{member.lastName}}{{#if member.isMe}} <span style="color:var(--text-faint); font-weight:400;">(you)</span>{{/if}}
+                </p>
+                {{#if member.hasBalance}}
+                  {{#if member.owedToMe}}
+                    <p class="group-member-balance group-member-balance--negative">owes {{member.balanceCurrency}} {{member.absBalance}}</p>
                   {{else}}
-                    <p class="balance-member-status balance-member-status--neutral">settled up</p>
+                    <p class="group-member-balance group-member-balance--positive">gets back {{member.balanceCurrency}} {{member.absBalance}}</p>
                   {{/if}}
-                </div>
-                {{#unless member.isMe}}
+                {{else}}
+                  <p class="group-member-balance" style="color:var(--text-faint);">settled up</p>
+                {{/if}}
+              </div>
+              {{#unless member.isMe}}
+                <div class="balance-member-actions">
                   {{#if member.hasBalance}}
-                    <button
-                      type="button"
-                      class="settle-btn-small"
-                      {{on "click" (fn this.toggleSettle member)}}
-                    >
+                    <button type="button" class="settle-btn-small" {{on "click" (fn this.toggleSettle member)}}>
                       {{if (eq this.settlingMemberId member.id) "Cancel" "Settle"}}
                     </button>
                   {{/if}}
-                {{/unless}}
-              </div>
+                  <button type="button" class="btn-danger-sm" {{on "click" (fn this.removeMember member)}}>Remove</button>
+                </div>
+              {{/unless}}
+            </div>
 
-              {{#if (eq this.settlingMemberId member.id)}}
-                <form
-                  {{on "submit" (fn this.recordSettlement member)}}
-                  class="settle-inline-form"
-                >
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    value={{this.settleAmount}}
-                    {{on "input" this.updateSettleAmount}}
-                    class="settle-inline-input"
-                    placeholder="Amount"
-                  />
-                  <button
-                    type="submit"
-                    class="btn-primary btn-small"
-                    disabled={{this.isSettling}}
-                  >
-                    {{if this.isSettling "…" "Confirm"}}
-                  </button>
-                </form>
-              {{/if}}
-            {{/each}}
-          </div>
+            {{#if (eq this.settlingMemberId member.id)}}
+              <form {{on "submit" (fn this.recordSettlement member)}} style="display:flex; gap:8px; padding:10px 0;">
+                <input
+                  type="number" step="0.01" min="0.01"
+                  value={{this.settleAmount}}
+                  {{on "input" this.updateSettleAmount}}
+                  style="flex:1; padding:8px 12px; border:1.5px solid var(--border); border-radius:8px; font-size:.9rem; outline:none;"
+                  placeholder="Amount"
+                />
+                <button type="submit" class="btn-primary" style="padding:8px 14px; font-size:.85rem;" disabled={{this.isSettling}}>
+                  {{if this.isSettling "…" "OK"}}
+                </button>
+              </form>
+            {{/if}}
+          {{/each}}
         </div>
       </div>
     {{/if}}
+
+    {{! ── Edit Group Modal ── }}
+    {{#if this.showEditModal}}
+      <div class="modal-overlay">
+        <div class="modal-card">
+          <div class="modal-header">
+            <h3>Edit Group</h3>
+            <button type="button" class="modal-close" {{on "click" this.closeEditModal}}>×</button>
+          </div>
+          {{#if this.editError}}
+            <div class="error-banner">{{this.editError}}</div>
+          {{/if}}
+          <form {{on "submit" this.saveGroupEdit}} class="form-card">
+            <div class="form-group">
+              <label for="edit-group-name">Group Name</label>
+              <input
+                id="edit-group-name"
+                type="text"
+                value={{this.editName}}
+                {{on "input" (fn this.updateEditField "editName")}}
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label for="edit-group-desc">Description</label>
+              <input
+                id="edit-group-desc"
+                type="text"
+                value={{this.editDescription}}
+                {{on "input" (fn this.updateEditField "editDescription")}}
+              />
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="edit-group-type">Type</label>
+                <select id="edit-group-type" {{on "change" (fn this.updateEditField "editGroupType")}}>
+                  {{#each this.groupTypes as |type|}}
+                    <option value={{type}} selected={{eq type this.editGroupType}}>{{type}}</option>
+                  {{/each}}
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="edit-group-currency">Currency</label>
+                <select id="edit-group-currency" {{on "change" (fn this.updateEditField "editCurrencyCode")}}>
+                  {{#each this.currencies as |code|}}
+                    <option value={{code}} selected={{eq code this.editCurrencyCode}}>{{code}}</option>
+                  {{/each}}
+                </select>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn-primary" disabled={{this.isEditSaving}}>
+                {{if this.isEditSaving "Saving…" "Save Changes"}}
+              </button>
+              <button type="button" class="btn-secondary" {{on "click" this.closeEditModal}}>Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    {{/if}}
+    </div>{{! end .page-content }}
   </template>
 }
 

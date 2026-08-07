@@ -66,11 +66,15 @@ export class FriendsNewTemplate extends Component {
   }
 
   <template>
+    <div class="page-content" style="max-width:580px;">
     <div class="page-back">
-      <LinkTo @route="index">← Dashboard</LinkTo>
+      <LinkTo @route="friends.index">← Friends</LinkTo>
     </div>
 
-    <h2>Add a Friend</h2>
+    <div style="margin-bottom:28px;">
+      <p class="page-eyebrow">Connect</p>
+      <h1 class="page-title">Add a Friend</h1>
+    </div>
 
     {{#if (eq this.inviteStatus "pending")}}
       {{! ── Invite sent confirmation ── }}
@@ -122,10 +126,11 @@ export class FriendsNewTemplate extends Component {
           <button type="submit" class="btn-primary" disabled={{this.isLoading}}>
             {{if this.isLoading "Adding…" "Add Friend"}}
           </button>
-          <LinkTo @route="index" class="btn-secondary">Cancel</LinkTo>
+          <LinkTo @route="friends.index" class="btn-secondary">Cancel</LinkTo>
         </div>
       </form>
     {{/if}}
+    </div>{{! end .page-content }}
   </template>
 }
 

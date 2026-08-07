@@ -48,66 +48,95 @@ export class SignupTemplate extends Component {
 
   <template>
     <div class="auth-page">
-      <div class="auth-card">
-        <h1 class="auth-logo">SplitUp</h1>
-        <p class="auth-tagline">Create your account</p>
+      {{! ── Left panel ── }}
+      <div class="auth-left">
+        <div class="auth-left-brand">
+          <div class="auth-left-brand-icon">S</div>
+          <span class="auth-left-brand-name">SplitUp</span>
+        </div>
+        <div>
+          <p class="auth-left-eyebrow">Join thousands of users</p>
+          <h1 class="auth-left-heading">Start splitting.<br/>Stop stressing.</h1>
+          <p class="auth-left-subtext">Create your free account and start tracking shared expenses with friends and groups.</p>
+        </div>
+        <div class="auth-left-stats">
+          <div class="auth-stat-card">
+            <p class="auth-stat-value auth-stat-value--amber">Free</p>
+            <p class="auth-stat-label">forever plan</p>
+          </div>
+          <div class="auth-stat-card">
+            <p class="auth-stat-value">5 min</p>
+            <p class="auth-stat-label">to get started</p>
+          </div>
+        </div>
+      </div>
 
-        {{#if this.errorMessage}}
-          <div class="error-banner">{{this.errorMessage}}</div>
-        {{/if}}
+      {{! ── Right form ── }}
+      <div class="auth-right">
+        <div class="auth-form-wrap">
+          <h2 class="auth-heading">Create account</h2>
+          <p class="auth-subtext">Join SplitUp — it's free</p>
 
-        <form {{on "submit" this.handleSubmit}}>
-          <div class="form-row">
+          {{#if this.errorMessage}}
+            <div class="error-banner">{{this.errorMessage}}</div>
+          {{/if}}
+
+          <form {{on "submit" this.handleSubmit}}>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="firstName">First Name</label>
+                <input
+                  id="firstName"
+                  type="text"
+                  value={{this.firstName}}
+                  {{on "input" (fn this.updateField "firstName")}}
+                  placeholder="Jordan"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="lastName">Last Name</label>
+                <input
+                  id="lastName"
+                  type="text"
+                  value={{this.lastName}}
+                  {{on "input" (fn this.updateField "lastName")}}
+                  placeholder="Kim"
+                />
+              </div>
+            </div>
             <div class="form-group">
-              <label for="firstName">First Name</label>
+              <label for="emailId">Email</label>
               <input
-                id="firstName"
-                type="text"
-                value={{this.firstName}}
-                {{on "input" (fn this.updateField "firstName")}}
+                id="emailId"
+                type="email"
+                value={{this.emailId}}
+                {{on "input" (fn this.updateField "emailId")}}
+                placeholder="you@example.com"
                 required
               />
             </div>
-            <div class="form-group">
-              <label for="lastName">Last Name</label>
+            <div class="form-group" style="margin-bottom:28px">
+              <label for="password">Password</label>
               <input
-                id="lastName"
-                type="text"
-                value={{this.lastName}}
-                {{on "input" (fn this.updateField "lastName")}}
+                id="password"
+                type="password"
+                value={{this.password}}
+                {{on "input" (fn this.updateField "password")}}
+                placeholder="Min. 8 characters"
+                required
               />
             </div>
-          </div>
-          <div class="form-group">
-            <label for="emailId">Email</label>
-            <input
-              id="emailId"
-              type="email"
-              value={{this.emailId}}
-              {{on "input" (fn this.updateField "emailId")}}
-              placeholder="you@example.com"
-              required
-            />
-          </div>
-          <div class="form-group">
-            <label for="password">Password</label>
-            <input
-              id="password"
-              type="password"
-              value={{this.password}}
-              {{on "input" (fn this.updateField "password")}}
-              required
-            />
-          </div>
-          <button type="submit" class="btn-primary btn-full" disabled={{this.isLoading}}>
-            {{if this.isLoading "Creating account…" "Create Account"}}
-          </button>
-        </form>
+            <button type="submit" class="btn-primary btn-full" disabled={{this.isLoading}}>
+              {{if this.isLoading "Creating account…" "Create Account →"}}
+            </button>
+          </form>
 
-        <p class="auth-footer">
-          Already have an account?
-          <LinkTo @route="login">Sign in</LinkTo>
-        </p>
+          <p class="auth-footer">
+            Already have an account?
+            <LinkTo @route="login" class="auth-link">Sign in</LinkTo>
+          </p>
+        </div>
       </div>
     </div>
   </template>

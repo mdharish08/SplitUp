@@ -1,4 +1,5 @@
 import Component from '@glimmer/component';
+import { LinkTo } from '@ember/routing';
 
 export default class ExpenseItem extends Component {
   get youPaid() {
@@ -16,20 +17,23 @@ export default class ExpenseItem extends Component {
   }
 
   get netBalanceClass() {
-    if (this.netBalance > 0) return 'balance-positive';
-    if (this.netBalance < 0) return 'balance-negative';
-    return 'balance-neutral';
+    if (this.netBalance > 0) return 'expense-row-share--owed';
+    if (this.netBalance < 0) return 'expense-row-share--owe';
+    return '';
   }
 
   get netBalanceLabel() {
-    if (this.netBalance > 0) return `+${this.netBalance.toFixed(2)}`;
-    if (this.netBalance < 0) return this.netBalance.toFixed(2);
-    return 'even';
+    const code = this.args.expense?.currencyCode ?? '';
+    if (this.netBalance > 0) return `you get back ${code} ${this.netBalance.toFixed(2)}`;
+    if (this.netBalance < 0) return `you owe ${code} ${Math.abs(this.netBalance).toFixed(2)}`;
+    return 'settled';
   }
 
   get displayDate() {
     const d = this.args.expense?.createdAt;
-    return d ? new Date(d).toLocaleDateString() : '';
+    if (!d) return '';
+    const date = new Date(d);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
 
   get formattedCost() {
@@ -38,22 +42,32 @@ export default class ExpenseItem extends Component {
     return `${code} ${amt}`;
   }
 
+  get categoryName() {
+    return this.args.expense?.category?.categoryName ?? '—';
+  }
+
+  get paidByLabel() {
+    return this.youPaid ? 'you' : `user ${this.args.expense?.paidBy ?? ''}`;
+  }
+
   <template>
-    <div class="expense-item">
-      <div class="expense-category">{{@expense.category.categoryName}}</div>
-      <div class="expense-details">
-        <p class="expense-desc">{{@expense.description}}</p>
-        <p class="expense-amount">{{this.formattedCost}}</p>
-        <p class="expense-date">{{this.displayDate}}</p>
+    <LinkTo @route="expenses.expense" @model={{@expense.id}} class="expense-row">
+      <span class="expense-row-date">{{this.displayDate}}</span>
+      <span>
+        <span class="expense-cat-pill">{{this.categoryName}}</span>
+      </span>
+      <div class="expense-row-desc-wrap">
+        <div class="expense-row-desc-line">
+          <span class="expense-row-desc">{{@expense.description}}</span>
+        </div>
+        <p class="expense-row-paid-by">paid by {{this.paidByLabel}}</p>
       </div>
-      <div class="expense-split">
-        {{#if this.youPaid}}
-          <span class="badge-paid">you paid</span>
-        {{/if}}
+      <div class="expense-row-amount-wrap">
+        <p class="expense-row-amount">{{this.formattedCost}}</p>
         {{#if this.yourSplit}}
-          <span class={{this.netBalanceClass}}>{{this.netBalanceLabel}}</span>
+          <p class="expense-row-share {{this.netBalanceClass}}">{{this.netBalanceLabel}}</p>
         {{/if}}
       </div>
-    </div>
+    </LinkTo>
   </template>
 }
