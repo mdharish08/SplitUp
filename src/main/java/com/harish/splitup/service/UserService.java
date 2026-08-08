@@ -8,7 +8,7 @@ import com.harish.splitup.dto.UserDto;
 import com.harish.splitup.dto.UserGroupMeta;
 import com.harish.splitup.entities.*;
 import com.harish.splitup.repositories.*;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,28 +22,16 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 
 @Service
+@RequiredArgsConstructor
 public class UserService {
 
-    @Autowired
-    private FriendsRepository friendsRepository;
-
-    @Autowired
-    private BalanceRepository balanceRepository;
-
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private GroupMappingRepository groupMappingRepository;
-
-    @Autowired
-    private GroupRepository groupRepository;
-
-    @Autowired
-    private PasswordEncoder passwordEncoder;
-
-    @Autowired
-    private PendingFriendInviteRepository pendingInviteRepository;
+    private final FriendsRepository friendsRepository;
+    private final BalanceRepository balanceRepository;
+    private final UserRepository userRepository;
+    private final GroupMappingRepository groupMappingRepository;
+    private final GroupRepository groupRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final PendingFriendInviteRepository pendingInviteRepository;
 
     @Transactional
     public UserDto registerUser(SignupRequestDto req) {
@@ -120,21 +108,9 @@ public class UserService {
             balanceRepository.findAllByUserIdAndGroupGroupId(userId, group.getGroupId())
                     .forEach(b -> balanceByFriendId.put(b.getFriend().getId(), b));
 
-            List<UserGroupMeta.GroupMemberMeta> membersBalance = new ArrayList<>();
-            for (SplitUser member : membersMeta) {
-                UserGroupMeta.GroupMemberMeta meta = new UserGroupMeta.GroupMemberMeta();
-                meta.setId(member.getId());
-                meta.setEmail(member.getEmailId());
-                meta.setFirstName(member.getFirstName());
-                meta.setLastName(member.getLastName());
-                meta.setRegistrationStatus(member.isEmailVerified() ? "verified" : "not_verified");
-
-                Balance memberBalance = balanceByFriendId.get(member.getId());
-                if (memberBalance != null) {
-                    meta.setBalance(memberBalance.balanceDto());
-                }
-                membersBalance.add(meta);
-            }
+            List<UserGroupMeta.GroupMemberMeta> membersBalance = membersMeta.stream()
+                    .map(member -> toGroupMemberMeta(member, balanceByFriendId.get(member.getId())))
+                    .toList();
 
             UserGroupMeta groupMeta = new UserGroupMeta();
             groupMeta.setId(group.getGroupId());
@@ -172,28 +148,15 @@ public class UserService {
 
             if (friendMeta == null) continue;
 
-            FriendsDto dto = new FriendsDto();
-            dto.setId(friendMeta.getId());
-            dto.setFirstName(friendMeta.getFirstName());
-            dto.setLastName(friendMeta.getLastName());
-            dto.setUserName(friendMeta.getUsername());
-            dto.setEmailId(friendMeta.getEmailId());
-            dto.setRegistrationStatus(friendMeta.isEmailVerified() ? "verified" : "not_verified");
+            FriendsDto dto = toFriendsDto(friendMeta);
 
             Balance personalBalance = friendVsBalance.get(friendMeta.getId());
             if (personalBalance != null) {
                 dto.setBalanceDto(personalBalance.balanceDto());
             }
 
-            List<FriendsDto.FriendsGroupDto> groupBalances = new ArrayList<>();
             List<Balance> groupBalanceList = friendVsGroupBalance.getOrDefault(friendMeta.getId(), List.of());
-            for (Balance groupBalance : groupBalanceList) {
-                FriendsDto.FriendsGroupDto groupDto = new FriendsDto.FriendsGroupDto();
-                groupDto.setBalanceDto(groupBalance.balanceDto());
-                groupDto.setGroupId(groupBalance.getGroup().getGroupId());
-                groupBalances.add(groupDto);
-            }
-            dto.setGroups(groupBalances);
+            dto.setGroups(groupBalanceList.stream().map(this::toFriendsGroupDto).toList());
             result.add(dto);
         }
 
@@ -294,5 +257,36 @@ public class UserService {
         dto.setBalanceDto(userToFriend.balanceDto());
         dto.setGroups(new ArrayList<>());
         return dto;
+    }
+
+    private UserGroupMeta.GroupMemberMeta toGroupMemberMeta(SplitUser member, Balance balance) {
+        UserGroupMeta.GroupMemberMeta meta = new UserGroupMeta.GroupMemberMeta();
+        meta.setId(member.getId());
+        meta.setEmail(member.getEmailId());
+        meta.setFirstName(member.getFirstName());
+        meta.setLastName(member.getLastName());
+        meta.setRegistrationStatus(member.isEmailVerified() ? "verified" : "not_verified");
+        if (balance != null) {
+            meta.setBalance(balance.balanceDto());
+        }
+        return meta;
+    }
+
+    private FriendsDto toFriendsDto(SplitUser friendMeta) {
+        FriendsDto dto = new FriendsDto();
+        dto.setId(friendMeta.getId());
+        dto.setFirstName(friendMeta.getFirstName());
+        dto.setLastName(friendMeta.getLastName());
+        dto.setUserName(friendMeta.getUsername());
+        dto.setEmailId(friendMeta.getEmailId());
+        dto.setRegistrationStatus(friendMeta.isEmailVerified() ? "verified" : "not_verified");
+        return dto;
+    }
+
+    private FriendsDto.FriendsGroupDto toFriendsGroupDto(Balance groupBalance) {
+        FriendsDto.FriendsGroupDto groupDto = new FriendsDto.FriendsGroupDto();
+        groupDto.setBalanceDto(groupBalance.balanceDto());
+        groupDto.setGroupId(groupBalance.getGroup().getGroupId());
+        return groupDto;
     }
 }

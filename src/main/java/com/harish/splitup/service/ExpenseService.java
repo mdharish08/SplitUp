@@ -25,14 +25,17 @@ import com.harish.splitup.entities.ExpenseMapping;
 import com.harish.splitup.entities.Group;
 import com.harish.splitup.entities.SplitDetails;
 import com.harish.splitup.entities.SplitUser;
+import com.harish.splitup.exception.ExpenseValidationException;
 import com.harish.splitup.repositories.BalanceRepository;
 import com.harish.splitup.repositories.CategoryRepository;
 import com.harish.splitup.repositories.ExpenseMappingsRepository;
 import com.harish.splitup.repositories.ExpenseRepository;
 import com.harish.splitup.repositories.GroupRepository;
 import com.harish.splitup.repositories.UserRepository;
+import lombok.RequiredArgsConstructor;
 
 @Service
+@RequiredArgsConstructor
 public class ExpenseService {
 
     private final GroupRepository groupRepository;
@@ -41,17 +44,6 @@ public class ExpenseService {
     private final CategoryRepository categoryRepository;
     private final ExpenseMappingsRepository expenseMappingsRepository;
     private final BalanceRepository balanceRepository;
-
-    public ExpenseService(GroupRepository groupRepository, ExpenseRepository expenseRepository,
-            UserRepository userRepository, CategoryRepository categoryRepository,
-            ExpenseMappingsRepository expenseMappingsRepository, BalanceRepository balanceRepository) {
-        this.groupRepository = groupRepository;
-        this.expenseRepository = expenseRepository;
-        this.userRepository = userRepository;
-        this.categoryRepository = categoryRepository;
-        this.expenseMappingsRepository = expenseMappingsRepository;
-        this.balanceRepository = balanceRepository;
-    }
 
     @Transactional(readOnly = true)
     public List<ExpenseDto> getGroupExpenseDetails(Long groupId) {
@@ -133,7 +125,7 @@ public class ExpenseService {
         }
 
         if (paidUser == null) {
-            throw new IllegalStateException("No payer found — exactly one participant must have paidShare > 0");
+            throw new ExpenseValidationException("No payer found — exactly one participant must have paidShare > 0");
         }
 
         expense.setSplitDetails(splitDetails);
@@ -161,8 +153,9 @@ public class ExpenseService {
                 .filter(id -> !id.equals(paidUser.getId()))
                 .toList();
 
-        if (friendIds.isEmpty())
+        if (friendIds.isEmpty()) {
             return;
+        }
 
         // Fetch only balances scoped to the same group (or personal if no group)
         Map<Long, Balance> paidToFriendMap;
@@ -197,7 +190,7 @@ public class ExpenseService {
             Balance paidVsFriend = paidToFriendMap.get(friendId);
             Balance friendVsPaid = friendToPaidMap.get(friendId);
             if (paidVsFriend == null || friendVsPaid == null) {
-                throw new IllegalStateException(
+                throw new ExpenseValidationException(
                         "Balance record missing for pair (" + paidUser.getId() + ", " + friendId + ")");
             }
             // Payer is now owed more → increase; friend owes more → decrease their opposite

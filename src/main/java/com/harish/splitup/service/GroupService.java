@@ -10,9 +10,9 @@ import com.harish.splitup.repositories.BalanceRepository;
 import com.harish.splitup.repositories.GroupMappingRepository;
 import com.harish.splitup.repositories.GroupRepository;
 import com.harish.splitup.repositories.UserRepository;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.sql.Timestamp;
@@ -22,19 +22,13 @@ import java.util.List;
 import java.util.NoSuchElementException;
 
 @Service
+@RequiredArgsConstructor
 public class GroupService {
 
-    @Autowired
-    GroupRepository groupRepository;
-
-    @Autowired
-    UserRepository userRepository;
-
-    @Autowired
-    GroupMappingRepository groupMappingRepository;
-
-    @Autowired
-    BalanceRepository balanceRepository;
+    private final GroupRepository groupRepository;
+    private final UserRepository userRepository;
+    private final GroupMappingRepository groupMappingRepository;
+    private final BalanceRepository balanceRepository;
 
     @Transactional
     public UserGroupMeta createGroup(Long userId, UserGroupMeta groupMeta) {

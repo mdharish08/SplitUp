@@ -5,6 +5,7 @@ import com.harish.splitup.dto.CategoryDto;
 import com.harish.splitup.dto.ExpenseDto;
 import com.harish.splitup.dto.SplitDetailsDto;
 import com.harish.splitup.entities.*;
+import com.harish.splitup.exception.ExpenseValidationException;
 import com.harish.splitup.repositories.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -190,7 +191,7 @@ class ExpenseServiceTest {
     }
 
     @Test
-    void createExpense_noPayer_throwsIllegalState() {
+    void createExpense_noPayer_throwsExpenseValidation() {
         ExpenseDto dto = buildBaseDto();
         dto.getUsers().forEach(s -> s.setPaidShare(BigDecimal.ZERO));
 
@@ -198,7 +199,7 @@ class ExpenseServiceTest {
         given(userRepository.findAllById(anyList())).willReturn(List.of(user1, user2));
 
         assertThatThrownBy(() -> expenseService.createExpense(dto))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(ExpenseValidationException.class)
                 .hasMessageContaining("No payer found");
     }
 

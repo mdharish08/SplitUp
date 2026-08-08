@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.harish.splitup.controllers.ExpenseController;
 import com.harish.splitup.dto.CategoryDto;
 import com.harish.splitup.dto.ExpenseDto;
+import com.harish.splitup.exception.ExpenseValidationException;
 import com.harish.splitup.repositories.CategoryRepository;
 import com.harish.splitup.repositories.UserRepository;
 import com.harish.splitup.service.ExpenseService;
@@ -99,9 +100,9 @@ class ExpenseControllerTest {
     }
 
     @Test
-    void createExpense_illegalState_returns422() throws Exception {
+    void createExpense_validationError_returns422() throws Exception {
         given(expenseService.createExpense(any(ExpenseDto.class)))
-                .willThrow(new IllegalStateException("No payer found"));
+                .willThrow(new ExpenseValidationException("No payer found"));
 
         mockMvc.perform(post("/api/v1/expense")
                         .with(csrf())

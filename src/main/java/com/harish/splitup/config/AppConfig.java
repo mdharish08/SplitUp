@@ -24,18 +24,15 @@ import com.harish.splitup.filters.JwtTokenCreationFilter;
 import com.harish.splitup.filters.JwtValidationFilter;
 import com.harish.splitup.repositories.UserRepository;
 import com.harish.splitup.service.JwtService;
+import lombok.RequiredArgsConstructor;
 
 @Configuration
 @EnableWebSecurity
+@RequiredArgsConstructor
 public class AppConfig {
 
     private final UserRepository repository;
     private final JwtService jwtService;
-
-    public AppConfig(UserRepository userRepository, JwtService jwtService) {
-        this.repository = userRepository;
-        this.jwtService = jwtService;
-    }
 
     @Bean
     public UserDetailsService userDetailsService() {

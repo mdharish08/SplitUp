@@ -7,6 +7,7 @@ import com.harish.splitup.repositories.UserRepository;
 import com.harish.splitup.service.ExpenseService;
 import com.harish.splitup.service.GroupService;
 import com.harish.splitup.service.UserService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
@@ -16,6 +17,7 @@ import java.util.List;
 import java.util.stream.Stream;
 
 @Component
+@RequiredArgsConstructor
 public class SeedDataRunner implements CommandLineRunner {
 
     private final UserRepository userRepository;
@@ -23,16 +25,6 @@ public class SeedDataRunner implements CommandLineRunner {
     private final GroupService groupService;
     private final ExpenseService expenseService;
     private final CategoryRepository categoryRepository;
-
-    public SeedDataRunner(UserRepository userRepository, UserService userService,
-                          GroupService groupService, ExpenseService expenseService,
-                          CategoryRepository categoryRepository) {
-        this.userRepository = userRepository;
-        this.userService = userService;
-        this.groupService = groupService;
-        this.expenseService = expenseService;
-        this.categoryRepository = categoryRepository;
-    }
 
     @Override
     public void run(String... args) {

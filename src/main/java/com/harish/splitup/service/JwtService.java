@@ -38,10 +38,11 @@ public class JwtService {
                     .build()
                     .parseSignedClaims(token)
                     .getPayload();
-            if (claims.getExpiration().after(new Date())) {
-                return claims.getSubject();
+            Date expiration = claims.getExpiration();
+            if (expiration == null || !expiration.after(new Date())) {
+                return null;
             }
-            return null;
+            return claims.getSubject();
         } catch (JwtException e) {
             return null;
         }
