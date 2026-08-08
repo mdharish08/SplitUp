@@ -2,6 +2,8 @@ package com.harish.splitup.service;
 
 import com.harish.splitup.constants.AppConstants;
 import com.harish.splitup.dto.CategoryDto;
+import com.harish.splitup.dto.CreateExpenseCommentRequestDto;
+import com.harish.splitup.dto.ExpenseCommentDto;
 import com.harish.splitup.dto.ExpenseDto;
 import com.harish.splitup.dto.SplitDetailsDto;
 import com.harish.splitup.entities.*;
@@ -38,6 +40,7 @@ class ExpenseServiceTest {
     @Mock private ExpenseRepository expenseRepository;
     @Mock private UserRepository userRepository;
     @Mock private CategoryRepository categoryRepository;
+    @Mock private CommentsRepository commentsRepository;
     @Mock private ExpenseMappingsRepository expenseMappingsRepository;
     @Mock private BalanceRepository balanceRepository;
 
@@ -123,6 +126,18 @@ class ExpenseServiceTest {
         expense.setCurrencyCode(AppConstants.CurrencyCode.USD);
         expense.setExpenseType(AppConstants.ExpenseType.EXPENSE);
         return expense;
+    }
+
+    private Comments buildComment(Long id, String content, SplitUser author, Expense expense, Timestamp now) {
+        Comments comment = new Comments();
+        comment.setCommentId(id);
+        comment.setContent(content);
+        comment.setCommentType(AppConstants.CommentType.USER);
+        comment.setAddedBy(author);
+        comment.setExpense(expense);
+        comment.setCreatedAt(now);
+        comment.setUpdatedAt(now);
+        return comment;
     }
 
     // ── createExpense ─────────────────────────────────────────────────────────
@@ -327,5 +342,58 @@ class ExpenseServiceTest {
         assertThatThrownBy(() -> expenseService.getGroupExpenseDetails(99L))
                 .isInstanceOf(NoSuchElementException.class)
                 .hasMessageContaining("Group not found");
+    }
+
+    @Test
+    void getExpenseComments_returnsOrderedComments() {
+        Timestamp now = Timestamp.from(Instant.now());
+        Expense expense = buildMinimalExpense(now);
+        Comments first = buildComment(1L, "First", user1, expense, now);
+        Comments second = buildComment(2L, "Second", user2, expense, now);
+
+        given(expenseRepository.findById(10L)).willReturn(Optional.of(expense));
+        given(commentsRepository.findAllByExpenseExpenseIdOrderByCreatedAtAsc(10L)).willReturn(List.of(first, second));
+
+        List<ExpenseCommentDto> result = expenseService.getExpenseComments(10L);
+
+        assertThat(result).hasSize(2);
+        assertThat(result.get(0).getContent()).isEqualTo("First");
+        assertThat(result.get(1).getContent()).isEqualTo("Second");
+    }
+
+    @Test
+    void addExpenseComment_savesCommentAndUpdatesCount() {
+        Timestamp now = Timestamp.from(Instant.now());
+        Expense expense = buildMinimalExpense(now);
+        CreateExpenseCommentRequestDto req = new CreateExpenseCommentRequestDto();
+        req.setContent(" Nice expense ");
+
+        given(expenseRepository.findById(10L)).willReturn(Optional.of(expense));
+        given(userRepository.findByEmailId("alice@example.com")).willReturn(Optional.of(user1));
+        given(commentsRepository.countByExpenseExpenseId(10L)).willReturn(1L);
+
+        ExpenseCommentDto result = expenseService.addExpenseComment(10L, "alice@example.com", req);
+
+        assertThat(result.getContent()).isEqualTo("Nice expense");
+        assertThat(result.getAddedByEmail()).isEqualTo("alice@example.com");
+        then(commentsRepository).should(times(1)).save(any(Comments.class));
+        then(expenseRepository).should(times(1)).save(any(Expense.class));
+    }
+
+    @Test
+    void deleteExpenseComment_removesOwnCommentAndUpdatesCount() {
+        Timestamp now = Timestamp.from(Instant.now());
+        Expense expense = buildMinimalExpense(now);
+        Comments comment = buildComment(99L, "To delete", user1, expense, now);
+
+        given(expenseRepository.findById(10L)).willReturn(Optional.of(expense));
+        given(commentsRepository.findByCommentIdAndExpenseExpenseId(99L, 10L)).willReturn(Optional.of(comment));
+        given(userRepository.findByEmailId("alice@example.com")).willReturn(Optional.of(user1));
+        given(commentsRepository.countByExpenseExpenseId(10L)).willReturn(0L);
+
+        expenseService.deleteExpenseComment(10L, 99L, "alice@example.com");
+
+        then(commentsRepository).should(times(1)).delete(comment);
+        then(expenseRepository).should(times(1)).save(any(Expense.class));
     }
 }

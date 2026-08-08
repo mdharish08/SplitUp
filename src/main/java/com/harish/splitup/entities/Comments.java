@@ -1,5 +1,6 @@
 package com.harish.splitup.entities;
 
+import com.harish.splitup.dto.ExpenseCommentDto;
 import java.sql.Timestamp;
 
 import com.harish.splitup.constants.AppConstants;
@@ -40,5 +41,34 @@ public class Comments {
     private Timestamp createdAt;
 
     private Timestamp updatedAt;
+
+    public ExpenseCommentDto toDTO() {
+        ExpenseCommentDto dto = new ExpenseCommentDto();
+        dto.setCommentId(this.getCommentId());
+        dto.setExpenseId(this.getExpense() != null ? this.getExpense().getExpenseId() : null);
+        dto.setContent(this.getContent());
+        dto.setCommentType(this.getCommentType() != null ? this.getCommentType().name() : null);
+        dto.setAddedById(this.getAddedBy() != null ? this.getAddedBy().getId() : null);
+        dto.setAddedByEmail(this.getAddedBy() != null ? this.getAddedBy().getEmailId() : null);
+        dto.setAddedByName(this.getAddedBy() != null ? formatAddedByName() : null);
+        dto.setCreatedAt(this.getCreatedAt());
+        dto.setUpdatedAt(this.getUpdatedAt());
+        return dto;
+    }
+
+    private String formatAddedByName() {
+        String firstName = this.getAddedBy().getFirstName();
+        String lastName = this.getAddedBy().getLastName();
+        if (firstName == null && lastName == null) {
+            return null;
+        }
+        if (firstName == null) {
+            return lastName;
+        }
+        if (lastName == null) {
+            return firstName;
+        }
+        return firstName + " " + lastName;
+    }
 
 }

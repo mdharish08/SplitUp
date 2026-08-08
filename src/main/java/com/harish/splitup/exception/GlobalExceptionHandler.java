@@ -3,6 +3,7 @@ package com.harish.splitup.exception;
 import com.harish.splitup.dto.ResponseDto;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -24,6 +25,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<ResponseDto<Void>> handleIllegalStateException(IllegalStateException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ResponseDto.error(e.getMessage()));
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ResponseDto<Void>> handleAccessDeniedException(AccessDeniedException e) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ResponseDto.error(e.getMessage()));
     }
 
     @ExceptionHandler(ExpenseValidationException.class)

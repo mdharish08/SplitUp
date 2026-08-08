@@ -60,7 +60,7 @@ public class Expense {
 
     public ExpenseDto toDTO() {
         ExpenseDto expenseDto = new ExpenseDto();
-        expenseDto.setExpenseId(this.getExpenseId());
+        expenseDto.setId(this.getExpenseId());
         expenseDto.setCurrencyCode(this.getCurrencyCode() != null ? this.getCurrencyCode().name() : null);
         expenseDto.setDeletedBy(this.getDeletedBy());
         expenseDto.setCost(this.getCost());

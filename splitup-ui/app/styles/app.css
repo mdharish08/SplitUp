@@ -1393,9 +1393,9 @@ input, select, button, textarea { font: inherit; }
 
 .group-detail-layout {
   display: grid;
-  grid-template-columns: 1fr 300px;
+  grid-template-columns: 1fr 320px;
   gap: 28px;
-  align-items: flex-start;
+  align-items: stretch;
 }
 
 .group-member-panel {
@@ -1403,8 +1403,8 @@ input, select, button, textarea { font: inherit; }
   border: 1px solid var(--border);
   border-radius: var(--card-radius);
   padding: 22px;
-  position: sticky;
-  top: 24px;
+  align-self: stretch;
+  height: 100%;
 }
 
 .group-member-panel-title {
@@ -1416,23 +1416,29 @@ input, select, button, textarea { font: inherit; }
   margin-bottom: 16px;
 }
 
+/* Card wraps the row + actions + settle form for one member */
+.group-member-card {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-faint);
+}
+.group-member-card:last-child { border-bottom: none; }
+
+/* Top row: avatar + name/balance only — no buttons here */
 .group-member-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--border-faint);
 }
 
 .group-member-avatar {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: .7rem;
+  font-size: .72rem;
   color: var(--sidebar-bg);
   flex-shrink: 0;
   text-transform: uppercase;
@@ -1442,20 +1448,25 @@ input, select, button, textarea { font: inherit; }
 
 .group-member-name {
   font-weight: 600;
-  font-size: .85rem;
+  font-size: .88rem;
   color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+.group-member-you {
+  font-weight: 400;
+  font-size: .8rem;
+  color: var(--text-faint);
+  margin-left: 4px;
 }
 
 .group-member-balance {
-  font-size: .75rem;
+  font-size: .78rem;
   font-variant-numeric: tabular-nums;
   margin-top: 2px;
 }
 .group-member-balance--positive { color: var(--positive); }
 .group-member-balance--negative { color: var(--negative); }
+.group-member-balance--neutral  { color: var(--text-faint); }
 
 .group-detail-actions {
   display: flex;
@@ -1618,7 +1629,32 @@ input, select, button, textarea { font: inherit; }
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-shrink: 0;
+  margin-top: 8px;
+  margin-left: 44px; /* indent past avatar (34px) + gap (10px) */
+}
+
+.settle-form {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  margin-left: 44px;
+}
+
+.settle-amount-input {
+  flex: 1;
+  padding: 7px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  font-size: .88rem;
+  outline: none;
+  min-width: 0;
+}
+.settle-amount-input:focus { border-color: var(--accent); }
+
+.settle-ok-btn {
+  padding: 7px 14px;
+  font-size: .85rem;
+  white-space: nowrap;
 }
 
 /* Inline avatar color helpers */
@@ -1906,12 +1942,18 @@ input, select, button, textarea { font: inherit; }
   flex-direction: column;
   gap: 6px;
   margin-top: 8px;
+  max-height: 180px;
+  overflow-y: auto;
 }
 
-.participant-label {
+.participant-label,
+.form-group .participant-label {
   display: flex;
   align-items: center;
   gap: 10px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
   padding: 9px 12px;
   border: 1.5px solid var(--border);
   border-radius: 9px;
@@ -2036,6 +2078,300 @@ input, select, button, textarea { font: inherit; }
   display: flex;
   gap: 10px;
   justify-content: center;
+}
+
+/* ─── New Expense: full-height side-by-side layout ─── */
+
+/* ne-page IS the <form>; it overrides page-content padding/max-width */
+.ne-page {
+  /* override page-content */
+  max-width: unset !important;
+  padding: 0 !important;
+  /* fill main-content exactly — no page scroll */
+  display: flex;
+  flex-direction: row;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── Left: scrollable form fields ── */
+.ne-form-area {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 44px 40px 32px 52px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.ne-title-block { margin-bottom: 8px; }
+
+/* 2-column grid for field pairs */
+.ne-fields-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+@media (max-width: 600px) {
+  .ne-fields-grid { grid-template-columns: 1fr; }
+}
+
+/* form-group inside ne-fields-grid: remove bottom margin (gap handles spacing) */
+.ne-fields-grid .form-group { margin-bottom: 0; }
+
+/* Push submit to bottom of form area */
+.ne-form-footer { margin-top: auto; padding-top: 16px; }
+
+/* ── Hero amount block (top of form) ── */
+.ne-amount-hero {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: var(--accent-light);
+  border: 1px solid rgba(245,158,11,.25);
+  border-radius: 16px;
+  padding: 28px 32px;
+}
+.ne-hero-currency {
+  background: transparent;
+  border: none;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--accent);
+  padding: 0;
+  cursor: pointer;
+  width: auto;
+  outline: none;
+}
+.ne-hero-currency:focus { outline: none; }
+.ne-hero-input {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid var(--accent);
+  outline: none;
+  font-size: 3rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  text-align: center;
+  width: 240px;
+  line-height: 1;
+  padding: 0 0 4px;
+}
+.ne-hero-input::placeholder { color: var(--text-faint); }
+.ne-hero-input::-webkit-outer-spin-button,
+.ne-hero-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.ne-hero-input[type=number] { -moz-appearance: textfield; }
+
+.ne-optional {
+  font-size: .75rem;
+  font-weight: 500;
+  color: var(--text-faint);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* ── Right: split total header ── */
+.ne-split-total {
+  background: var(--accent-light);
+  border: 1px solid rgba(245,158,11,.2);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+}
+.ne-split-total-label {
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 4px;
+}
+.ne-split-total-amount {
+  font-size: 2rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  line-height: 1.1;
+}
+.ne-split-total-sub {
+  font-size: .8rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* ── Right: split method panel ── */
+.ne-split-panel {
+  width: 380px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  background: var(--white);
+  padding: 44px 24px 32px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ne-split-panel-title {
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.ne-split-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+.ne-split-tab {
+  padding: 10px 8px;
+  border: 1.5px solid var(--border);
+  background: var(--bg);
+  border-radius: 8px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.ne-split-tab:hover { border-color: #d6d3d1; }
+.ne-split-tab--active {
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+.ne-split-tab-label {
+  font-size: .82rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  display: block;
+}
+.ne-split-tab--active .ne-split-tab-label { color: var(--accent-hover); }
+.ne-split-tab-sub {
+  font-size: .65rem;
+  color: var(--text-faint);
+  display: block;
+}
+
+.ne-split-members {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+.ne-split-member-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-bottom: 1px solid #f5f5f4;
+}
+.ne-split-member-row:last-child { border-bottom: none; }
+.ne-split-member-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: .65rem;
+  color: #111110;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+.ne-split-member-name {
+  flex: 1;
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.ne-split-member-share {
+  font-size: .75rem;
+  color: var(--text-faint);
+}
+.ne-split-hint { margin-top: 4px; }
+
+/* ── Split panel: layout transition ── */
+/* Without split open: left area stays centred at a comfortable reading width */
+.ne-page:not(.ne-page--split-open) .ne-form-area {
+  max-width: 600px;
+}
+
+/* ── Step labels ── */
+.ne-step-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.ne-step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: .72rem;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+/* ── Submit button hint ── */
+.ne-submit-hint {
+  text-align: center;
+  font-size: .8rem;
+  color: var(--text-faint);
+  margin-top: 8px;
+}
+
+/* ── Pending hint (before amount entered) ── */
+.ne-split-pending-hint {
+  text-align: center;
+  font-size: .85rem;
+  color: var(--text-faint);
+  padding: 20px 0 8px;
+  border-top: 1px dashed var(--border);
+  margin-top: 4px;
+}
+
+/* ── Split balance status bar ── */
+.ne-split-balance {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: .85rem;
+  font-weight: 600;
+  text-align: center;
+}
+.ne-split-balance--ok {
+  background: var(--positive-bg);
+  color: var(--positive);
+}
+.ne-split-balance--warn {
+  background: var(--negative-bg);
+  color: var(--negative);
+}
+
+/* Submit button */
+.ne-submit {
+  padding: 12px 32px;
+  font-size: .95rem;
+  font-weight: 800;
 }
 
 /* ─── Link-teal helper ─── */

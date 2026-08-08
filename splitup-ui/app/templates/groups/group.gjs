@@ -317,7 +317,7 @@ export class GroupsGroupTemplate extends Component {
   }
 
   <template>
-    <div class="page-content">
+    <div class="page-content page-content--wide">
       <div class="page-back">
         <LinkTo @route="groups.index">← Groups</LinkTo>
       </div>
@@ -399,24 +399,30 @@ export class GroupsGroupTemplate extends Component {
           {{/if}}
 
           {{#each this.membersWithMeta as |member|}}
-            <div class="group-member-row">
-              <div class="group-member-avatar" style="background:{{member.avatarColor}}; color:#111110;">
-                {{member.initials}}
-              </div>
-              <div class="group-member-info">
-                <p class="group-member-name">
-                  {{member.firstName}} {{member.lastName}}{{#if member.isMe}} <span style="color:var(--text-faint); font-weight:400;">(you)</span>{{/if}}
-                </p>
-                {{#if member.hasBalance}}
-                  {{#if member.owedToMe}}
-                    <p class="group-member-balance group-member-balance--negative">owes {{member.balanceCurrency}} {{member.absBalance}}</p>
+            <div class="group-member-card">
+              {{! Top row: avatar + name + balance }}
+              <div class="group-member-row">
+                <div class="group-member-avatar" style="background:{{member.avatarColor}}; color:#111110;">
+                  {{member.initials}}
+                </div>
+                <div class="group-member-info">
+                  <p class="group-member-name">
+                    {{member.firstName}} {{member.lastName}}
+                    {{#if member.isMe}}<span class="group-member-you">(you)</span>{{/if}}
+                  </p>
+                  {{#if member.hasBalance}}
+                    {{#if member.owedToMe}}
+                      <p class="group-member-balance group-member-balance--negative">owes {{member.balanceCurrency}} {{member.absBalance}}</p>
+                    {{else}}
+                      <p class="group-member-balance group-member-balance--positive">gets back {{member.balanceCurrency}} {{member.absBalance}}</p>
+                    {{/if}}
                   {{else}}
-                    <p class="group-member-balance group-member-balance--positive">gets back {{member.balanceCurrency}} {{member.absBalance}}</p>
+                    <p class="group-member-balance group-member-balance--neutral">settled up</p>
                   {{/if}}
-                {{else}}
-                  <p class="group-member-balance" style="color:var(--text-faint);">settled up</p>
-                {{/if}}
+                </div>
               </div>
+
+              {{! Action row: indented below name }}
               {{#unless member.isMe}}
                 <div class="balance-member-actions">
                   {{#if member.hasBalance}}
@@ -427,22 +433,23 @@ export class GroupsGroupTemplate extends Component {
                   <button type="button" class="btn-danger-sm" {{on "click" (fn this.removeMember member)}}>Remove</button>
                 </div>
               {{/unless}}
-            </div>
 
-            {{#if (eq this.settlingMemberId member.id)}}
-              <form {{on "submit" (fn this.recordSettlement member)}} style="display:flex; gap:8px; padding:10px 0;">
-                <input
-                  type="number" step="0.01" min="0.01"
-                  value={{this.settleAmount}}
-                  {{on "input" this.updateSettleAmount}}
-                  style="flex:1; padding:8px 12px; border:1.5px solid var(--border); border-radius:8px; font-size:.9rem; outline:none;"
-                  placeholder="Amount"
-                />
-                <button type="submit" class="btn-primary" style="padding:8px 14px; font-size:.85rem;" disabled={{this.isSettling}}>
-                  {{if this.isSettling "…" "OK"}}
-                </button>
-              </form>
-            {{/if}}
+              {{! Settle form }}
+              {{#if (eq this.settlingMemberId member.id)}}
+                <form class="settle-form" {{on "submit" (fn this.recordSettlement member)}}>
+                  <input
+                    type="number" step="0.01" min="0.01"
+                    value={{this.settleAmount}}
+                    {{on "input" this.updateSettleAmount}}
+                    class="settle-amount-input"
+                    placeholder="Amount"
+                  />
+                  <button type="submit" class="btn-primary settle-ok-btn" disabled={{this.isSettling}}>
+                    {{if this.isSettling "…" "Confirm"}}
+                  </button>
+                </form>
+              {{/if}}
+            </div>
           {{/each}}
         </div>
       </div>

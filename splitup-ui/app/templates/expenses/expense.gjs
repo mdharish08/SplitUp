@@ -6,6 +6,7 @@ import { on } from '@ember/modifier';
 import { fn, eq } from '@ember/helper';
 import { LinkTo } from '@ember/routing';
 import RouteTemplate from 'ember-route-template';
+import ExpenseComments from 'splitup-ui/components/expense-comments';
 
 function idEq(a, b) {
   return String(a) === String(b);
@@ -33,6 +34,10 @@ export class ExpensesExpenseTemplate extends Component {
 
   get expense() {
     return this.args.model.expense;
+  }
+
+  get comments() {
+    return this.args.model.comments ?? [];
   }
 
   get categories() {
@@ -300,6 +305,11 @@ export class ExpensesExpenseTemplate extends Component {
             </table>
           {{/if}}
         </div>
+
+        <ExpenseComments
+          @expenseId={{this.expense.id}}
+          @comments={{this.comments}}
+        />
       </div>
     {{else}}
       <div class="empty-state">

@@ -10,7 +10,7 @@ import java.util.List;
 @Data
 public class ExpenseDto {
 
-    private Long expenseId;
+    private Long id;
 
     private CategoryDto category;
 
