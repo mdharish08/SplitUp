@@ -25,6 +25,7 @@ export default class Sidebar extends Component {
 
   @tracked friends = [];
   @tracked groups = [];
+  @tracked collapsed = localStorage.getItem('splitup-sidebar-collapsed') === 'true';
 
   constructor(owner, args) {
     super(owner, args);
@@ -104,12 +105,20 @@ export default class Sidebar extends Component {
     this.router.transitionTo('login');
   }
 
+  @action toggleCollapsed() {
+    this.collapsed = !this.collapsed;
+    localStorage.setItem('splitup-sidebar-collapsed', String(this.collapsed));
+  }
+
   <template>
-    <aside class="sidebar">
+    <aside class="sidebar {{if this.collapsed 'is-collapsed'}}">
       {{! ── Brand ── }}
       <div class="sidebar-brand">
         <div class="sidebar-brand-icon">S</div>
         <span class="sidebar-brand-name">SplitUp</span>
+        <button type="button" class="sidebar-collapse-btn" title="Toggle sidebar" {{on "click" this.toggleCollapsed}}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 3L6 8l4 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
       </div>
 
       {{! ── Main Nav ── }}

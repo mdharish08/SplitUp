@@ -6,7 +6,13 @@ export default class ExpensesIndexRoute extends AuthenticatedRoute {
   @service auth;
 
   async model() {
-    const response = await this.api.get(`/api/v1/expense/user/${this.auth.userId}`);
-    return { expenses: response?.data ?? [] };
+    const [expensesResponse, friendsResponse] = await Promise.all([
+      this.api.get(`/api/v1/expense/user/${this.auth.userId}`),
+      this.api.get(`/api/v1/friends/${this.auth.userId}`),
+    ]);
+    return {
+      expenses: expensesResponse?.data ?? [],
+      friends: friendsResponse?.data ?? [],
+    };
   }
 }

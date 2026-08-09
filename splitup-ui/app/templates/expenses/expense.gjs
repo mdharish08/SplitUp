@@ -8,6 +8,12 @@ import { LinkTo } from '@ember/routing';
 import RouteTemplate from 'ember-route-template';
 import ExpenseComments from 'splitup-ui/components/expense-comments';
 
+const CAT_EMOJI = {
+  'Food & Drink': '🍽', 'Groceries': '🛒', 'Travel': '✈️', 'Transport': '🚗',
+  'Transportation': '🚗', 'Entertainment': '🎬', 'Activities': '🎭',
+  'Utilities': '💡', 'Other': '•',
+};
+
 function idEq(a, b) {
   return String(a) === String(b);
 }
@@ -68,6 +74,18 @@ export class ExpensesExpenseTemplate extends Component {
     return `${this.expense?.currencyCode ?? ''} ${parseFloat(this.expense?.cost ?? 0).toFixed(2)}`;
   }
 
+  get catEmoji() {
+    return CAT_EMOJI[this.expense?.category?.categoryName ?? ''] ?? '•';
+  }
+
+  get paidByLabel() {
+    const payerId = String(this.expense?.paidBy ?? '');
+    if (payerId === String(this.currentUserId)) return 'you';
+    const friend = this.friends?.find((f) => String(f.id) === payerId);
+    if (friend) return `${friend.firstName ?? ''} ${friend.lastName ?? ''}`.trim();
+    return `user ${payerId}`;
+  }
+
   get myShare() {
     const split = this.expense?.users?.find((u) => String(u.userId) === String(this.auth.userId));
     if (!split) return null;
@@ -75,6 +93,23 @@ export class ExpensesExpenseTemplate extends Component {
     const owed = parseFloat(split.owedShare ?? 0);
     const net = parseFloat(split.netBalance ?? 0);
     return { paid, owed, net };
+  }
+
+  get myShareLabel() {
+    if (!this.myShare) return null;
+    const { net } = this.myShare;
+    const cur = this.expense?.currencyCode ?? '';
+    if (net > 0) return `you lent ${cur} ${net.toFixed(2)}`;
+    if (net < 0) return `you owe ${cur} ${Math.abs(net).toFixed(2)}`;
+    return 'settled up';
+  }
+
+  get myShareClass() {
+    if (!this.myShare) return '';
+    const { net } = this.myShare;
+    if (net > 0) return 'expense-row-share--positive';
+    if (net < 0) return 'expense-row-share--negative';
+    return '';
   }
 
   get isPayment() {
@@ -86,7 +121,7 @@ export class ExpensesExpenseTemplate extends Component {
   }
 
   getUserName(userId) {
-    const friend = this.friends.find((f) => String(f.id) === String(userId));
+    const friend = this.friends?.find((f) => String(f.id) === String(userId));
     if (friend) return `${friend.firstName} ${friend.lastName}`.trim();
     if (String(userId) === String(this.auth.userId)) return 'You';
     return `User ${userId}`;
@@ -159,7 +194,6 @@ export class ExpensesExpenseTemplate extends Component {
       if (response?.code !== 0) throw new Error(response?.error ?? 'Failed to update expense');
       this.toast?.success('Expense updated');
       this.isEditing = false;
-      // Refresh model
       this.router.refresh('expenses.expense');
     } catch (e) {
       this.errorMessage = e.message;
@@ -197,166 +231,177 @@ export class ExpensesExpenseTemplate extends Component {
   }
 
   <template>
-    <div class="page-content page-content--narrow">
-    <div class="page-back">
-      {{#if this.expense.groupId}}
-        <LinkTo @route="groups.group" @model={{this.expense.groupId}}>← Group</LinkTo>
-      {{else}}
-        <LinkTo @route="expenses.index">← All Expenses</LinkTo>
-      {{/if}}
-    </div>
-
     {{#if this.expense}}
-      <div class="expense-detail-card">
-        <div class="expense-detail-header">
-          <div class="expense-detail-icon">
-            {{#if this.isPayment}}💸{{else}}💰{{/if}}
-          </div>
-          <div class="expense-detail-info">
-            <h2 class="expense-detail-desc">{{this.expense.description}}</h2>
-            <p class="expense-detail-amount">{{this.formattedCost}}</p>
-            <p class="expense-detail-date">{{this.formattedDate}}</p>
-            <p class="expense-detail-category">
-              {{this.expense.category.categoryName}} ·
-              {{this.expense.expenseType}}
-            </p>
+      <div class="screen-fixed">
+        {{! ── Fixed top bar: breadcrumb + actions ── }}
+        <div class="screen-topbar" style="display:flex; align-items:center; gap:12px;">
+          <div style="flex:1;">
+            {{#if this.expense.groupId}}
+              <LinkTo @route="groups.group" @model={{this.expense.groupId}} class="page-back-link">← Group</LinkTo>
+            {{else}}
+              <LinkTo @route="expenses.index" class="page-back-link">← All Expenses</LinkTo>
+            {{/if}}
           </div>
           {{#if this.canManageExpense}}
-            <div class="expense-detail-actions">
-              {{#if this.expense.trashed}}
-                <button
-                  type="button"
-                  class="btn-primary"
-                  disabled={{this.isRestoring}}
-                  {{on "click" this.restoreExpense}}
-                >
-                  {{if this.isRestoring "Restoring…" "Restore"}}
-                </button>
-              {{else}}
-                <button type="button" class="btn-secondary" {{on "click" this.startEdit}}>
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  class="btn-danger"
-                  disabled={{this.isDeleting}}
-                  {{on "click" this.deleteExpense}}
-                >
-                  {{if this.isDeleting "Deleting…" "Delete"}}
-                </button>
+            {{#if this.expense.trashed}}
+              <button
+                type="button"
+                class="btn-primary"
+                disabled={{this.isRestoring}}
+                {{on "click" this.restoreExpense}}
+              >{{if this.isRestoring "Restoring…" "Restore"}}</button>
+            {{else}}
+              <button type="button" class="btn-secondary" {{on "click" this.startEdit}}>Edit</button>
+              <button
+                type="button"
+                class="btn-danger"
+                disabled={{this.isDeleting}}
+                {{on "click" this.deleteExpense}}
+              >{{if this.isDeleting "Deleting…" "Delete"}}</button>
+            {{/if}}
+          {{/if}}
+        </div>
+
+        {{! ── Fixed header strip ── }}
+        <div class="expense-detail-strip">
+          <div class="expense-detail-badges">
+            <span class="expense-cat-pill">{{this.catEmoji}} {{this.expense.category.categoryName}}</span>
+            {{#if this.expense.groupId}}
+              <span class="expense-group-badge">Group</span>
+            {{/if}}
+            {{#if this.isPayment}}
+              <span class="expense-group-badge" style="background:var(--positive);">Settlement</span>
+            {{/if}}
+            {{#if this.expense.trashed}}
+              <span class="expense-group-badge" style="background:var(--negative);">Deleted</span>
+            {{/if}}
+          </div>
+          <h1>{{this.expense.description}}</h1>
+          <div class="expense-detail-meta-row">
+            <span>{{this.formattedDate}}</span>
+            <span>·</span>
+            <strong>{{this.formattedCost}}</strong>
+            <span>·</span>
+            <span>paid by {{this.paidByLabel}}</span>
+            {{#if this.myShareLabel}}
+              <span>·</span>
+              <span class="{{this.myShareClass}}">{{this.myShareLabel}}</span>
+            {{/if}}
+          </div>
+          {{#if this.errorMessage}}
+            <div class="error-banner" style="margin-top:10px;">{{this.errorMessage}}</div>
+          {{/if}}
+          {{#if this.expense.trashed}}
+            <div class="error-banner" style="margin-top:10px;">This expense is deleted. Restore it to edit or comment.</div>
+          {{/if}}
+        </div>
+
+        {{! ── Two-column scrollable body ── }}
+        <div class="screen-two-col screen-two-col--expense">
+          {{! Left: split details + edit form }}
+          <div class="screen-panel" style="padding:24px 32px;">
+            {{#if (and this.isEditing (not this.expense.trashed))}}
+              {{! Edit form }}
+              <form {{on "submit" this.saveEdit}} class="form-card expense-edit-form">
+                <h3 style="margin-top:0;">Edit Expense</h3>
+                <div class="form-group">
+                  <label for="edit-desc">Description</label>
+                  <input
+                    id="edit-desc"
+                    type="text"
+                    value={{this.description}}
+                    {{on "input" (fn this.updateField "description")}}
+                    required
+                  />
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="edit-cost">Amount</label>
+                    <input
+                      id="edit-cost"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={{this.cost}}
+                      {{on "input" (fn this.updateField "cost")}}
+                      required
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label for="edit-currency">Currency</label>
+                    <select id="edit-currency" {{on "change" (fn this.updateField "currencyCode")}}>
+                      {{#each this.currencies as |code|}}
+                        <option value={{code}} selected={{eq code this.currencyCode}}>{{code}}</option>
+                      {{/each}}
+                    </select>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="edit-category">Category</label>
+                  <select id="edit-category" {{on "change" (fn this.updateField "selectedCategoryId")}}>
+                    <option value="">-- Select category --</option>
+                    {{#each this.categories as |cat|}}
+                      <option
+                        value={{cat.categoryId}}
+                        selected={{idEq cat.categoryId this.selectedCategoryId}}
+                      >{{cat.categoryName}}</option>
+                    {{/each}}
+                  </select>
+                </div>
+                <div class="form-actions">
+                  <button type="submit" class="btn-primary" disabled={{this.isLoading}}>
+                    {{if this.isLoading "Saving…" "Save Changes"}}
+                  </button>
+                  <button type="button" class="btn-secondary" {{on "click" this.cancelEdit}}>Cancel</button>
+                </div>
+              </form>
+            {{else}}
+              {{! Split breakdown }}
+              <h3 style="margin-top:0; font-size:1rem; font-weight:800; color:var(--text);">Split Breakdown</h3>
+              {{#if this.formattedSplitUsers.length}}
+                <table class="split-table">
+                  <thead>
+                    <tr>
+                      <th>Person</th>
+                      <th>Paid</th>
+                      <th>Owes</th>
+                      <th>Net</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {{#each this.formattedSplitUsers as |u|}}
+                      <tr class={{if u.isMe "split-row-me" ""}}>
+                        <td>{{u.name}}</td>
+                        <td>{{u.paidFormatted}}</td>
+                        <td>{{u.owedFormatted}}</td>
+                        <td class={{u.netClass}}>{{u.netFormatted}}</td>
+                      </tr>
+                    {{/each}}
+                  </tbody>
+                </table>
               {{/if}}
-            </div>
-          {{/if}}
-        </div>
+            {{/if}}
+          </div>
 
-        {{#if this.errorMessage}}
-          <div class="error-banner">{{this.errorMessage}}</div>
-        {{/if}}
-
-        {{#if this.expense.trashed}}
-          <div class="error-banner">This expense is deleted. Restore it to edit or comment.</div>
-        {{/if}}
-
-        {{! ── Edit form ── }}
-        {{#if (and this.isEditing (not this.expense.trashed))}}
-          <form {{on "submit" this.saveEdit}} class="form-card expense-edit-form">
-            <h3>Edit Expense</h3>
-            <div class="form-group">
-              <label for="edit-desc">Description</label>
-              <input
-                id="edit-desc"
-                type="text"
-                value={{this.description}}
-                {{on "input" (fn this.updateField "description")}}
-                required
+          {{! Right: comments panel }}
+          <div class="screen-panel" style="padding:24px 24px; display:flex; flex-direction:column;">
+            {{#unless this.expense.trashed}}
+              <ExpenseComments
+                @expenseId={{this.expense.id}}
+                @comments={{this.comments}}
               />
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label for="edit-cost">Amount</label>
-                <input
-                  id="edit-cost"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={{this.cost}}
-                  {{on "input" (fn this.updateField "cost")}}
-                  required
-                />
-              </div>
-              <div class="form-group">
-                <label for="edit-currency">Currency</label>
-                <select id="edit-currency" {{on "change" (fn this.updateField "currencyCode")}}>
-                  {{#each this.currencies as |code|}}
-                    <option value={{code}} selected={{eq code this.currencyCode}}>{{code}}</option>
-                  {{/each}}
-                </select>
-              </div>
-            </div>
-            <div class="form-group">
-              <label for="edit-category">Category</label>
-              <select id="edit-category" {{on "change" (fn this.updateField "selectedCategoryId")}}>
-                <option value="">-- Select category --</option>
-                {{#each this.categories as |cat|}}
-                  <option
-                    value={{cat.categoryId}}
-                    selected={{idEq cat.categoryId this.selectedCategoryId}}
-                  >{{cat.categoryName}}</option>
-                {{/each}}
-              </select>
-            </div>
-            <div class="form-actions">
-              <button type="submit" class="btn-primary" disabled={{this.isLoading}}>
-                {{if this.isLoading "Saving…" "Save Changes"}}
-              </button>
-              <button type="button" class="btn-secondary" {{on "click" this.cancelEdit}}>
-                Cancel
-              </button>
-            </div>
-          </form>
-        {{/if}}
-
-        {{! ── Split breakdown ── }}
-        <div class="expense-split-breakdown">
-          <h3>Split Breakdown</h3>
-          {{#if this.formattedSplitUsers.length}}
-            <table class="split-table">
-              <thead>
-                <tr>
-                  <th>Person</th>
-                  <th>Paid</th>
-                  <th>Owes</th>
-                  <th>Net</th>
-                </tr>
-              </thead>
-              <tbody>
-                {{#each this.formattedSplitUsers as |u|}}
-                  <tr class={{if u.isMe "split-row-me" ""}}>
-                    <td>{{u.name}}</td>
-                    <td>{{u.paidFormatted}}</td>
-                    <td>{{u.owedFormatted}}</td>
-                    <td class={{u.netClass}}>{{u.netFormatted}}</td>
-                  </tr>
-                {{/each}}
-              </tbody>
-            </table>
-          {{/if}}
+            {{/unless}}
+          </div>
         </div>
-
-        {{#unless this.expense.trashed}}
-          <ExpenseComments
-            @expenseId={{this.expense.id}}
-            @comments={{this.comments}}
-          />
-        {{/unless}}
       </div>
     {{else}}
-      <div class="empty-state">
-        <p>Expense not found.</p>
-        <LinkTo @route="expenses.index" class="btn-secondary">Back to expenses</LinkTo>
+      <div class="page-content">
+        <div class="empty-state">
+          <p>Expense not found.</p>
+          <LinkTo @route="expenses.index" class="btn-secondary">Back to expenses</LinkTo>
+        </div>
       </div>
     {{/if}}
-    </div>{{! end .page-content }}
   </template>
 }
 

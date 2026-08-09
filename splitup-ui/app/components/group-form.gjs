@@ -116,87 +116,67 @@ export default class GroupForm extends Component {
   }
 
   <template>
-    <div class="page-content" style="max-width:640px;">
-    <div class="page-back">
-      <LinkTo @route="groups.index">← Groups</LinkTo>
-    </div>
+    <form {{on "submit" this.handleSubmit}} class="screen-fixed">
+      {{! ── Fixed header ── }}
+      <div class="screen-topbar">
+        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+          <LinkTo @route="groups.index" style="color:var(--text-muted); font-size:.85rem; text-decoration:none; flex-shrink:0;">← Groups</LinkTo>
+          <div style="flex:1; min-width:200px;">
+            <div class="group-name-input-wrap">
+              <span class="group-name-icon">
+                {{#if this.name}}{{this.name.[0]}}{{else}}?{{/if}}
+              </span>
+              <input
+                id="gf-name"
+                type="text"
+                class="group-name-input"
+                value={{this.name}}
+                {{on "input" (fn this.updateField "name")}}
+                placeholder="Group name…"
+                required
+              />
+            </div>
+          </div>
+          <select id="gf-currency" style="height:40px; border-radius:8px; border:1px solid var(--border); padding:0 10px; font-size:.875rem; flex-shrink:0;" {{on "change" (fn this.updateField "currencyCode")}}>
+            {{#each this.currencies as |code|}}
+              <option value={{code}} selected={{eq code this.currencyCode}}>{{code}}</option>
+            {{/each}}
+          </select>
+          <div class="group-type-options" style="flex-wrap:wrap; gap:6px;">
+            {{#each this.groupTypeOptions as |opt|}}
+              <button
+                type="button"
+                class="group-type-btn {{if (eq opt.value this.groupType) 'group-type-btn--active' ''}}"
+                {{on "click" (fn this.setGroupType opt.value)}}
+              >
+                <span class="group-type-btn-icon">{{opt.icon}}</span>
+                <span>{{opt.label}}</span>
+              </button>
+            {{/each}}
+          </div>
+        </div>
 
-    <div style="margin-bottom:28px;">
-      <p class="page-eyebrow">Create</p>
-      <h1 class="page-title">New Group</h1>
-      <p class="group-form-sub" style="color:var(--text-muted); font-size:.9rem; margin-top:6px;">Split expenses with people you choose</p>
-    </div>
+        {{#if this.errorMessage}}
+          <div class="error-banner" style="margin-top:12px;">{{this.errorMessage}}</div>
+        {{/if}}
+      </div>
 
-    {{#if this.errorMessage}}
-      <div class="error-banner">{{this.errorMessage}}</div>
-    {{/if}}
-
-    <form {{on "submit" this.handleSubmit}} class="form-card group-form-card">
-
-      {{! ── Group name ── }}
-      <div class="form-group">
-        <label for="gf-name">Group name</label>
-        <div class="group-name-input-wrap">
-          <span class="group-name-icon">
-            {{#if this.name}}{{this.name.[0]}}{{else}}?{{/if}}
-          </span>
+      {{! ── Scrollable members panel ── }}
+      <div class="screen-body" style="padding:24px 40px;">
+        <div class="form-group" style="margin-bottom:20px;">
+          <label for="gf-desc" style="font-size:.75rem; font-weight:800; text-transform:uppercase; letter-spacing:.07em; color:var(--text-faint);">Description <span style="font-weight:400; text-transform:none;">(optional)</span></label>
           <input
-            id="gf-name"
+            id="gf-desc"
             type="text"
-            class="group-name-input"
-            value={{this.name}}
-            {{on "input" (fn this.updateField "name")}}
-            placeholder="e.g. Summer Trip 2025"
-            required
+            value={{this.description}}
+            {{on "input" (fn this.updateField "description")}}
+            placeholder="What's this group for?"
           />
         </div>
-      </div>
 
-      {{! ── Group type as icon buttons ── }}
-      <div class="form-group">
-        <label>Type</label>
-        <div class="group-type-options">
-          {{#each this.groupTypeOptions as |opt|}}
-            <button
-              type="button"
-              class="group-type-btn {{if (eq opt.value this.groupType) 'group-type-btn--active' ''}}"
-              {{on "click" (fn this.setGroupType opt.value)}}
-            >
-              <span class="group-type-btn-icon">{{opt.icon}}</span>
-              <span>{{opt.label}}</span>
-            </button>
-          {{/each}}
-        </div>
-      </div>
-
-      {{! ── Currency ── }}
-      <div class="form-group form-group--inline">
-        <label for="gf-currency">Currency</label>
-        <select id="gf-currency" {{on "change" (fn this.updateField "currencyCode")}}>
-          {{#each this.currencies as |code|}}
-            <option value={{code}} selected={{eq code this.currencyCode}}>{{code}}</option>
-          {{/each}}
-        </select>
-      </div>
-
-      {{! ── Description ── }}
-      <div class="form-group">
-        <label for="gf-desc">Description <span class="form-hint">(optional)</span></label>
-        <input
-          id="gf-desc"
-          type="text"
-          value={{this.description}}
-          {{on "input" (fn this.updateField "description")}}
-          placeholder="What's this group for?"
-        />
-      </div>
-
-      {{! ── Members ── }}
-      <div class="form-group">
-        <label>Members</label>
+        <p style="font-size:.75rem; font-weight:800; text-transform:uppercase; letter-spacing:.07em; color:var(--text-faint); margin:0 0 14px;">Members</p>
 
         <div class="gf-member-list">
-          {{! Current user (always included, not removable) }}
           <div class="gf-member-row gf-member-row--self">
             <div class="gf-member-avatar gf-member-avatar--self">
               {{(this.auth.userEmail.[0])}}
@@ -224,7 +204,7 @@ export default class GroupForm extends Component {
         </div>
 
         {{#if this.hasFriends}}
-          <div class="member-search-wrap" style="margin-top: 10px;">
+          <div class="member-search-wrap" style="margin-top:14px;">
             <input
               type="text"
               class="member-search-input"
@@ -242,9 +222,7 @@ export default class GroupForm extends Component {
                       class="member-dropdown-item"
                       {{on "mousedown" (fn this.selectFriend friend)}}
                     >
-                      <span class="member-dropdown-name">
-                        {{friend.firstName}} {{friend.lastName}}
-                      </span>
+                      <span class="member-dropdown-name">{{friend.firstName}} {{friend.lastName}}</span>
                       <span class="member-dropdown-email">{{friend.emailId}}</span>
                     </li>
                   {{/each}}
@@ -257,7 +235,7 @@ export default class GroupForm extends Component {
             {{/if}}
           </div>
         {{else}}
-          <p class="form-hint" style="margin-top: 8px;">
+          <p class="form-hint" style="margin-top:8px;">
             No friends yet.
             <LinkTo @route="friends.new" class="link-teal">Add a friend</LinkTo>
             first to include them.
@@ -265,13 +243,16 @@ export default class GroupForm extends Component {
         {{/if}}
       </div>
 
-      <div class="form-actions">
+      {{! ── Pinned footer ── }}
+      <div class="screen-footer">
+        <span style="flex:1; font-size:.875rem; color:var(--text-muted); align-self:center;">
+          {{this.members.length}} friend(s) selected
+        </span>
         <button type="submit" class="btn-primary" disabled={{this.isLoading}}>
           {{if this.isLoading "Creating…" "Create Group"}}
         </button>
         <LinkTo @route="groups.index" class="btn-secondary">Cancel</LinkTo>
       </div>
     </form>
-    </div>{{! end .page-content }}
   </template>
 }

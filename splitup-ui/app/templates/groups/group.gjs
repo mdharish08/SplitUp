@@ -317,141 +317,126 @@ export class GroupsGroupTemplate extends Component {
   }
 
   <template>
-    <div class="page-content page-content--wide">
-      <div class="page-back">
-        <LinkTo @route="groups.index">← Groups</LinkTo>
-      </div>
-
     {{#if this.group}}
-      {{! ── Group header ── }}
-      <div class="group-detail-header">
-        <div class="group-detail-icon" style="background:{{this.groupColor}}; color:#111110;">
-          {{this.groupInitials}}
+      <div class="screen-fixed">
+        {{! ── Fixed header strip ── }}
+        <div class="group-detail-header-strip">
+          <LinkTo @route="groups.index" style="color:var(--text-muted); font-size:.85rem; text-decoration:none; flex-shrink:0;">← Groups</LinkTo>
+          <div class="group-detail-icon" style="background:{{this.groupColor}}; color:#111110; flex-shrink:0;">
+            {{this.groupInitials}}
+          </div>
+          <div style="flex:1; min-width:0;">
+            <h1 class="group-detail-name">{{this.group.name}}</h1>
+            <p class="group-detail-meta">{{this.group.members.length}} members · {{this.group.currencyCode}}</p>
+          </div>
+          <span class="balance-badge {{this.myBalanceBadgeClass}}" style="flex-shrink:0;">{{this.myBalanceLabel}}</span>
+          <button type="button" class="btn-primary" style="flex-shrink:0;" {{on "click" this.addExpense}}>+ Add Expense</button>
+          <button type="button" class="btn-secondary" style="flex-shrink:0;" {{on "click" this.openEditModal}}>Edit</button>
+          <button type="button" class="btn-danger" style="flex-shrink:0;" {{on "click" this.deleteGroup}}>Delete</button>
         </div>
-        <div class="group-detail-info">
-          <p class="page-eyebrow">Group</p>
-          <h1 class="group-detail-name">{{this.group.name}}</h1>
-          <p class="group-detail-meta">
-            {{this.group.members.length}} members · {{this.group.currencyCode}}
-          </p>
-        </div>
-        <div class="group-detail-balance">
-          <p class="group-detail-balance-label">Your balance</p>
-          <span class="balance-badge {{this.myBalanceBadgeClass}}">{{this.myBalanceLabel}}</span>
-        </div>
-        <div class="group-detail-actions">
-          <button type="button" class="btn-primary" {{on "click" this.addExpense}}>+ Add Expense</button>
-          <button type="button" class="btn-secondary" {{on "click" this.openEditModal}}>Edit</button>
-          <button type="button" class="btn-secondary" {{on "click" this.leaveGroup}}>Leave</button>
-          <button type="button" class="btn-danger" {{on "click" this.deleteGroup}}>Delete</button>
-        </div>
-      </div>
 
-      {{! ── Two-column body ── }}
-      <div class="group-detail-layout">
+        {{! ── Two-column body ── }}
+        <div class="screen-two-col screen-two-col--group">
 
-        {{! ── Left: expense feed ── }}
-        <div>
-          <p class="page-eyebrow" style="margin-bottom:12px;">Expenses</p>
-          {{#if this.groupedExpenses.length}}
-            <div class="expense-table-header">
-              <span class="expense-table-col-label--right expense-table-col-label">Date</span>
-              <span class="expense-table-col-label">Category</span>
-              <span class="expense-table-col-label">Description</span>
-              <span class="expense-table-col-label--right expense-table-col-label">Amount</span>
-            </div>
-            {{#each this.groupedExpenses as |month|}}
-              <div class="expense-month-group">
-                <div class="expense-month-header">
-                  <span class="expense-month-label">{{month.label}}</span>
-                  <div class="expense-month-line"></div>
-                </div>
-                {{#each month.items as |exp|}}
-                  <div class="expense-row" style="cursor:default;">
-                    <span class="expense-row-date">{{exp.monthShort}} {{exp.dayNum}}</span>
-                    <span><span class="expense-cat-pill">{{exp.category.categoryName}}</span></span>
-                    <div class="expense-row-desc-wrap">
-                      <span class="expense-row-desc">{{exp.description}}</span>
-                      <p class="expense-row-paid-by">{{exp.payerName}} paid {{exp.formattedCost}}</p>
-                    </div>
-                    <div class="expense-row-amount-wrap">
-                      <p class="expense-row-amount">{{exp.formattedCost}}</p>
-                      <p class="expense-row-share expense-row-share--{{exp.myShareType}}">{{exp.myShareLabel}}</p>
-                    </div>
+          {{! Left: expense feed }}
+          <div class="screen-panel" style="padding:16px 24px 32px;">
+            <p class="page-eyebrow" style="margin-bottom:12px; padding-top:4px;">Expenses</p>
+
+            {{#if this.groupedExpenses.length}}
+              {{#each this.groupedExpenses as |month|}}
+                <div class="expense-month-group">
+                  <div class="expense-month-header">
+                    <span class="expense-month-label">{{month.label}}</span>
+                    <div class="expense-month-line"></div>
                   </div>
-                {{/each}}
+                  {{#each month.items as |exp|}}
+                    <LinkTo @route="expenses.expense" @model={{exp.id}} class="expense-row" style="text-decoration:none; color:inherit;">
+                      <span class="expense-row-date">{{exp.monthShort}} {{exp.dayNum}}</span>
+                      <span><span class="expense-cat-pill">{{exp.category.categoryName}}</span></span>
+                      <div class="expense-row-desc-wrap">
+                        <span class="expense-row-desc">{{exp.description}}</span>
+                        <p class="expense-row-paid-by">{{exp.payerName}} paid {{exp.formattedCost}}</p>
+                      </div>
+                      <div class="expense-row-amount-wrap">
+                        <p class="expense-row-amount">{{exp.formattedCost}}</p>
+                        <p class="expense-row-share expense-row-share--{{exp.myShareType}}">{{exp.myShareLabel}}</p>
+                      </div>
+                    </LinkTo>
+                  {{/each}}
+                </div>
+              {{/each}}
+            {{else}}
+              <div class="empty-state">
+                <p>No expenses yet.</p>
+                <button type="button" class="btn-primary" {{on "click" this.addExpense}}>Add first expense</button>
+              </div>
+            {{/if}}
+          </div>
+
+          {{! Right: member balances panel }}
+          <div class="screen-panel" style="padding:16px 20px 32px;">
+            <p class="page-eyebrow" style="margin-bottom:12px; padding-top:4px;">Member Balances</p>
+
+            {{#if this.settleError}}
+              <div class="error-banner">{{this.settleError}}</div>
+            {{/if}}
+
+            {{#each this.membersWithMeta as |member|}}
+              <div class="group-member-card">
+                <div class="group-member-row">
+                  <div class="group-member-avatar" style="background:{{member.avatarColor}}; color:#111110;">
+                    {{member.initials}}
+                  </div>
+                  <div class="group-member-info">
+                    <p class="group-member-name">
+                      {{member.firstName}} {{member.lastName}}
+                      {{#if member.isMe}}<span class="group-member-you">(you)</span>{{/if}}
+                    </p>
+                    {{#if member.hasBalance}}
+                      {{#if member.owedToMe}}
+                        <p class="group-member-balance group-member-balance--positive">owes {{member.balanceCurrency}} {{member.absBalance}}</p>
+                      {{else}}
+                        <p class="group-member-balance group-member-balance--negative">gets back {{member.balanceCurrency}} {{member.absBalance}}</p>
+                      {{/if}}
+                    {{else}}
+                      <p class="group-member-balance group-member-balance--neutral">settled up</p>
+                    {{/if}}
+                  </div>
+                </div>
+
+                {{#unless member.isMe}}
+                  <div class="balance-member-actions">
+                    {{#if member.hasBalance}}
+                      <button type="button" class="settle-btn-small" {{on "click" (fn this.toggleSettle member)}}>
+                        {{if (eq this.settlingMemberId member.id) "Cancel" "Settle"}}
+                      </button>
+                    {{/if}}
+                    <button type="button" class="btn-danger-sm" {{on "click" (fn this.removeMember member)}}>Remove</button>
+                  </div>
+                {{/unless}}
+
+                {{#if (eq this.settlingMemberId member.id)}}
+                  <form class="settle-form" {{on "submit" (fn this.recordSettlement member)}}>
+                    <input
+                      type="number" step="0.01" min="0.01"
+                      value={{this.settleAmount}}
+                      {{on "input" this.updateSettleAmount}}
+                      class="settle-amount-input"
+                      placeholder="Amount"
+                    />
+                    <button type="submit" class="btn-primary settle-ok-btn" disabled={{this.isSettling}}>
+                      {{if this.isSettling "…" "Confirm"}}
+                    </button>
+                  </form>
+                {{/if}}
               </div>
             {{/each}}
-          {{else}}
-            <div class="empty-state">
-              <p>No expenses yet.</p>
-              <button type="button" class="btn-primary" {{on "click" this.addExpense}}>Add first expense</button>
-            </div>
-          {{/if}}
+          </div>
         </div>
-
-        {{! ── Right: member balances panel ── }}
-        <div class="group-member-panel">
-          <p class="group-member-panel-title">Member Balances</p>
-
-          {{#if this.settleError}}
-            <div class="error-banner">{{this.settleError}}</div>
-          {{/if}}
-
-          {{#each this.membersWithMeta as |member|}}
-            <div class="group-member-card">
-              {{! Top row: avatar + name + balance }}
-              <div class="group-member-row">
-                <div class="group-member-avatar" style="background:{{member.avatarColor}}; color:#111110;">
-                  {{member.initials}}
-                </div>
-                <div class="group-member-info">
-                  <p class="group-member-name">
-                    {{member.firstName}} {{member.lastName}}
-                    {{#if member.isMe}}<span class="group-member-you">(you)</span>{{/if}}
-                  </p>
-                  {{#if member.hasBalance}}
-                    {{#if member.owedToMe}}
-                      <p class="group-member-balance group-member-balance--positive">owes {{member.balanceCurrency}} {{member.absBalance}}</p>
-                    {{else}}
-                      <p class="group-member-balance group-member-balance--negative">gets back {{member.balanceCurrency}} {{member.absBalance}}</p>
-                    {{/if}}
-                  {{else}}
-                    <p class="group-member-balance group-member-balance--neutral">settled up</p>
-                  {{/if}}
-                </div>
-              </div>
-
-              {{! Action row: indented below name }}
-              {{#unless member.isMe}}
-                <div class="balance-member-actions">
-                  {{#if member.hasBalance}}
-                    <button type="button" class="settle-btn-small" {{on "click" (fn this.toggleSettle member)}}>
-                      {{if (eq this.settlingMemberId member.id) "Cancel" "Settle"}}
-                    </button>
-                  {{/if}}
-                  <button type="button" class="btn-danger-sm" {{on "click" (fn this.removeMember member)}}>Remove</button>
-                </div>
-              {{/unless}}
-
-              {{! Settle form }}
-              {{#if (eq this.settlingMemberId member.id)}}
-                <form class="settle-form" {{on "submit" (fn this.recordSettlement member)}}>
-                  <input
-                    type="number" step="0.01" min="0.01"
-                    value={{this.settleAmount}}
-                    {{on "input" this.updateSettleAmount}}
-                    class="settle-amount-input"
-                    placeholder="Amount"
-                  />
-                  <button type="submit" class="btn-primary settle-ok-btn" disabled={{this.isSettling}}>
-                    {{if this.isSettling "…" "Confirm"}}
-                  </button>
-                </form>
-              {{/if}}
-            </div>
-          {{/each}}
-        </div>
+      </div>
+    {{else}}
+      <div class="page-content">
+        <div class="empty-state"><p>Group not found.</p></div>
       </div>
     {{/if}}
 
@@ -514,7 +499,6 @@ export class GroupsGroupTemplate extends Component {
         </div>
       </div>
     {{/if}}
-    </div>{{! end .page-content }}
   </template>
 }
 

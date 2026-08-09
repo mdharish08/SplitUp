@@ -14,6 +14,13 @@ export class IndexTemplate extends Component {
   @service toast;
   @service router;
 
+  get greeting() {
+    const h = new Date().getHours();
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
   @tracked showSettleModal = false;
   @tracked settleTargetFriend = null;
   @tracked settleAmount = '';
@@ -158,7 +165,7 @@ export class IndexTemplate extends Component {
       <div class="dashboard-header">
         <div>
           <p class="page-eyebrow">Overview</p>
-          <h1 class="page-title">Dashboard</h1>
+          <h1 class="page-title">{{this.greeting}}{{#if this.auth.userFirstName}}, {{this.auth.userFirstName}}{{/if}}</h1>
         </div>
         <LinkTo @route="expenses.new" class="btn-primary" style="margin-top:6px">
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 .5v11M.5 6h11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -174,6 +181,7 @@ export class IndexTemplate extends Component {
             {{#each this.youOweByCurrency as |item|}}
               <span class="balance-summary-value text-negative">{{item.currency}} {{item.amountFormatted}}</span>
             {{/each}}
+            <span class="balance-summary-sub">across {{this.youOweList.length}} {{if (gt this.youOweList.length 1) "friends" "friend"}}</span>
           {{else}}
             <span class="balance-summary-value balance-summary-value--neutral">nothing</span>
           {{/if}}
@@ -184,6 +192,7 @@ export class IndexTemplate extends Component {
             {{#each this.youAreOwedByCurrency as |item|}}
               <span class="balance-summary-value text-positive">{{item.currency}} {{item.amountFormatted}}</span>
             {{/each}}
+            <span class="balance-summary-sub">across {{this.youAreOwedList.length}} {{if (gt this.youAreOwedList.length 1) "friends" "friend"}}</span>
           {{else}}
             <span class="balance-summary-value balance-summary-value--neutral">nothing</span>
           {{/if}}
