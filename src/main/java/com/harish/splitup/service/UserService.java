@@ -3,9 +3,9 @@ package com.harish.splitup.service;
 import com.harish.splitup.constants.AppConstants;
 import com.harish.splitup.dto.AddFriendRequestDto;
 import com.harish.splitup.dto.FriendsDto;
+import com.harish.splitup.dto.GroupMetaResponseDto;
 import com.harish.splitup.dto.SignupRequestDto;
 import com.harish.splitup.dto.UserDto;
-import com.harish.splitup.dto.UserGroupMeta;
 import com.harish.splitup.entities.*;
 import com.harish.splitup.repositories.*;
 import lombok.RequiredArgsConstructor;
@@ -93,8 +93,8 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-    public List<UserGroupMeta> getUserGroupMeta(long userId) {
-        List<UserGroupMeta> result = new ArrayList<>();
+    public List<GroupMetaResponseDto> getUserGroupMeta(long userId) {
+        List<GroupMetaResponseDto> result = new ArrayList<>();
         List<Long> userGroupIds = groupMappingRepository.findAllByMemberId(userId)
                 .stream().map(gm -> gm.getGroup().getGroupId()).toList();
         List<Group> userGroups = groupRepository.findAllById(userGroupIds);
@@ -108,19 +108,20 @@ public class UserService {
             balanceRepository.findAllByUserIdAndGroupGroupId(userId, group.getGroupId())
                     .forEach(b -> balanceByFriendId.put(b.getFriend().getId(), b));
 
-            List<UserGroupMeta.GroupMemberMeta> membersBalance = membersMeta.stream()
+            List<GroupMetaResponseDto.GroupMemberResponseDto> membersBalance = membersMeta.stream()
                     .map(member -> toGroupMemberMeta(member, balanceByFriendId.get(member.getId())))
                     .toList();
 
-            UserGroupMeta groupMeta = new UserGroupMeta();
-            groupMeta.setId(group.getGroupId());
-            groupMeta.setName(group.getGroupName());
-            groupMeta.setCreatedAt(group.getCreatedAt());
-            groupMeta.setUpdatedAt(group.getUpdatedAt());
-            groupMeta.setGroupType(group.getGroupType() != null ? group.getGroupType().name() : null);
-            groupMeta.setCurrencyCode(group.getCurrencyCode() != null ? group.getCurrencyCode().name() : null);
-            groupMeta.setMembers(membersBalance);
-            result.add(groupMeta);
+            result.add(new GroupMetaResponseDto(
+                    group.getGroupId(),
+                    group.getGroupName(),
+                    group.getGroupType(),
+                    group.getCurrencyCode(),
+                    group.getGroupDescription(),
+                    group.getCreatedAt(),
+                    group.getUpdatedAt(),
+                    membersBalance
+            ));
         }
         return result;
     }
@@ -259,17 +260,15 @@ public class UserService {
         return dto;
     }
 
-    private UserGroupMeta.GroupMemberMeta toGroupMemberMeta(SplitUser member, Balance balance) {
-        UserGroupMeta.GroupMemberMeta meta = new UserGroupMeta.GroupMemberMeta();
-        meta.setId(member.getId());
-        meta.setEmail(member.getEmailId());
-        meta.setFirstName(member.getFirstName());
-        meta.setLastName(member.getLastName());
-        meta.setRegistrationStatus(member.isEmailVerified() ? "verified" : "not_verified");
-        if (balance != null) {
-            meta.setBalance(balance.balanceDto());
-        }
-        return meta;
+    private GroupMetaResponseDto.GroupMemberResponseDto toGroupMemberMeta(SplitUser member, Balance balance) {
+        return new GroupMetaResponseDto.GroupMemberResponseDto(
+                member.getId(),
+                member.getEmailId(),
+                member.getFirstName(),
+                member.getLastName(),
+                member.isEmailVerified() ? "verified" : "not_verified",
+                balance != null ? balance.balanceDto() : null
+        );
     }
 
     private FriendsDto toFriendsDto(SplitUser friendMeta) {

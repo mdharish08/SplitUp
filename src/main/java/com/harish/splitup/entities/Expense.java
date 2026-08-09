@@ -3,7 +3,10 @@ package com.harish.splitup.entities;
 import com.harish.splitup.constants.AppConstants;
 import com.harish.splitup.dto.ExpenseDto;
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.sql.Timestamp;
@@ -12,6 +15,9 @@ import java.util.List;
 
 @Data
 @Entity
+@Builder(setterPrefix = "with")
+@NoArgsConstructor
+@AllArgsConstructor
 public class Expense {
 
     @Id
@@ -22,12 +28,14 @@ public class Expense {
     @JoinColumn(name = "category_id", nullable = false)
     private Category category;
 
+    @Builder.Default
     private BigDecimal cost = BigDecimal.ZERO;
 
     @Enumerated(EnumType.STRING)
     @Column(length = 3)
     private AppConstants.CurrencyCode currencyCode;
 
+    @Builder.Default
     private int commentsCount = 0;
 
     private boolean transactionConfirmed;
@@ -56,6 +64,7 @@ public class Expense {
     private Timestamp createdAt;
 
     @OneToMany(mappedBy = "expense", orphanRemoval = true, cascade = CascadeType.ALL)
+    @Builder.Default
     private List<SplitDetails> splitDetails = new ArrayList<>();
 
     public ExpenseDto toDTO() {

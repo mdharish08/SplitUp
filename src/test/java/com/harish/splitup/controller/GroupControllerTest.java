@@ -1,8 +1,10 @@
 package com.harish.splitup.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.harish.splitup.constants.AppConstants;
 import com.harish.splitup.controllers.GroupController;
-import com.harish.splitup.dto.UserGroupMeta;
+import com.harish.splitup.dto.CreateGroupRequestDto;
+import com.harish.splitup.dto.GroupMetaResponseDto;
 import com.harish.splitup.repositories.CategoryRepository;
 import com.harish.splitup.repositories.UserRepository;
 import com.harish.splitup.service.GroupService;
@@ -16,7 +18,6 @@ import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.*;
@@ -41,43 +42,42 @@ class GroupControllerTest {
     @MockBean GroupService groupService;
     @MockBean UserService userService;
 
-    private UserGroupMeta buildGroupMeta() {
-        UserGroupMeta meta = new UserGroupMeta();
-        meta.setId(1L);
-        meta.setName("Trip to Goa");
-        meta.setGroupType("TRIP");
-        meta.setCurrencyCode("USD");
-        meta.setDescription("Fun trip");
-
-        UserGroupMeta.GroupMemberMeta member = new UserGroupMeta.GroupMemberMeta();
-        member.setId(2L);
-        member.setEmail("bob@example.com");
-        member.setFirstName("Bob");
-        member.setLastName("Jones");
-        member.setRegistrationStatus("not_verified");
-        meta.setMembers(List.of(member));
-        return meta;
+    private GroupMetaResponseDto buildGroupResponse() {
+        return new GroupMetaResponseDto(
+                1L,
+                "Trip to Goa",
+                AppConstants.GroupType.TRIP,
+                AppConstants.CurrencyCode.USD,
+                "Fun trip",
+                null,
+                null,
+                List.of(new GroupMetaResponseDto.GroupMemberResponseDto(
+                        2L,
+                        "bob@example.com",
+                        "Bob",
+                        "Jones",
+                        "not_verified",
+                        null
+                ))
+        );
     }
 
-    private UserGroupMeta requestMeta() {
-        UserGroupMeta meta = new UserGroupMeta();
-        meta.setName("Trip to Goa");
-        meta.setGroupType("TRIP");
-        meta.setCurrencyCode("USD");
-        meta.setDescription("Fun trip");
-
-        UserGroupMeta.GroupMemberMeta member = new UserGroupMeta.GroupMemberMeta();
-        member.setId(2L);
-        meta.setMembers(new ArrayList<>(List.of(member)));
-        return meta;
+    private CreateGroupRequestDto requestMeta() {
+        return new CreateGroupRequestDto(
+                "Trip to Goa",
+                AppConstants.GroupType.TRIP,
+                AppConstants.CurrencyCode.USD,
+                "Fun trip",
+                List.of(new CreateGroupRequestDto.GroupMemberRequestDto(2L))
+        );
     }
 
     // ── POST /api/v1/user/{userId}/group ─────────────────────────────────────
 
     @Test
     void createGroup_success_returns201() throws Exception {
-        given(groupService.createGroup(eq(1L), any(UserGroupMeta.class)))
-                .willReturn(buildGroupMeta());
+        given(groupService.createGroup(eq(1L), any(CreateGroupRequestDto.class)))
+                .willReturn(buildGroupResponse());
 
         mockMvc.perform(post("/api/v1/user/1/group")
                         .with(csrf())
@@ -90,11 +90,16 @@ class GroupControllerTest {
 
     @Test
     void createGroup_missingName_returns400() throws Exception {
-        given(groupService.createGroup(eq(1L), any(UserGroupMeta.class)))
+        given(groupService.createGroup(eq(1L), any(CreateGroupRequestDto.class)))
                 .willThrow(new IllegalArgumentException("Group name is required"));
 
-        UserGroupMeta bad = requestMeta();
-        bad.setName(null);
+        CreateGroupRequestDto bad = new CreateGroupRequestDto(
+                null,
+                AppConstants.GroupType.TRIP,
+                AppConstants.CurrencyCode.USD,
+                "Fun trip",
+                List.of(new CreateGroupRequestDto.GroupMemberRequestDto(2L))
+        );
 
         mockMvc.perform(post("/api/v1/user/1/group")
                         .with(csrf())
@@ -108,7 +113,7 @@ class GroupControllerTest {
 
     @Test
     void getUserGroups_success_returns200() throws Exception {
-        given(userService.getUserGroupMeta(1L)).willReturn(List.of(buildGroupMeta()));
+        given(userService.getUserGroupMeta(1L)).willReturn(List.of(buildGroupResponse()));
 
         mockMvc.perform(get("/api/v1/user/1/group"))
                 .andExpect(status().isOk())

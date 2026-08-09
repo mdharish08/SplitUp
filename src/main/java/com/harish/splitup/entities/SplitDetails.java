@@ -3,13 +3,19 @@ package com.harish.splitup.entities;
 import com.harish.splitup.dto.SplitDetailsDto;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.sql.Timestamp;
 
 @Data
 @Entity
 @Table(name = "split_details")
+@Builder(setterPrefix = "with")
+@NoArgsConstructor
+@AllArgsConstructor
 public class SplitDetails {
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -23,10 +29,13 @@ public class SplitDetails {
     @JoinColumn(name = "user_id")
     private SplitUser user;
 
+    @Builder.Default
     private BigDecimal paidShare = BigDecimal.ZERO;
 
+    @Builder.Default
     private BigDecimal owedShare = BigDecimal.ZERO;
 
+    @Builder.Default
     private BigDecimal netBalance = BigDecimal.ZERO;
 
     private Timestamp createdAt;

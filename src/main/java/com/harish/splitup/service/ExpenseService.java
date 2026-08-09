@@ -84,19 +84,20 @@ public class ExpenseService {
         Category category = categoryRepository.findById(dto.getCategory().getCategoryId())
                 .orElseThrow(() -> new NoSuchElementException("Category not found"));
 
-        Expense expense = new Expense();
-        expense.setCategory(category);
-        expense.setCost(dto.getCost());
-        expense.setCurrencyCode(currencyCode);
-        expense.setExpenseType(expenseType);
-        expense.setDescription(dto.getDescription());
-
         Group group = null;
         if (dto.getGroupId() != null) {
             group = groupRepository.findById(dto.getGroupId())
                     .orElseThrow(() -> new NoSuchElementException("Group not found"));
-            expense.setGroup(group);
         }
+
+        Expense expense = Expense.builder()
+                .withCategory(category)
+                .withCost(dto.getCost())
+                .withCurrencyCode(currencyCode)
+                .withExpenseType(expenseType)
+                .withDescription(dto.getDescription())
+                .withGroup(group)
+                .build();
 
         List<Long> userIds = dto.getUsers().stream().map(SplitDetailsDto::getUserId).toList();
         Map<Long, SplitUser> userMap = userRepository.findAllById(userIds)
@@ -111,14 +112,15 @@ public class ExpenseService {
             if (user == null) {
                 throw new NoSuchElementException("User not found: " + splitDto.getUserId());
             }
-            SplitDetails split = new SplitDetails();
-            split.setExpense(expense);
-            split.setUser(user);
-            split.setPaidShare(splitDto.getPaidShare());
-            split.setOwedShare(splitDto.getOwedShare());
-            split.setNetBalance(splitDto.getPaidShare().subtract(splitDto.getOwedShare()));
-            split.setCreatedAt(now);
-            split.setUpdatedAt(now);
+            SplitDetails split = SplitDetails.builder()
+                    .withExpense(expense)
+                    .withUser(user)
+                    .withPaidShare(splitDto.getPaidShare())
+                    .withOwedShare(splitDto.getOwedShare())
+                    .withNetBalance(splitDto.getPaidShare().subtract(splitDto.getOwedShare()))
+                    .withCreatedAt(now)
+                    .withUpdatedAt(now)
+                    .build();
             splitDetails.add(split);
 
             if (splitDto.getPaidShare().compareTo(BigDecimal.ZERO) > 0) {
@@ -139,12 +141,12 @@ public class ExpenseService {
         expense.setUpdatedAt(now);
         expenseRepository.save(expense);
 
-        List<ExpenseMapping> expenseMappings = userMap.values().stream().map(user -> {
-            ExpenseMapping m = new ExpenseMapping();
-            m.setExpense(expense);
-            m.setUser(user);
-            return m;
-        }).toList();
+        List<ExpenseMapping> expenseMappings = userMap.values().stream()
+                .map(user -> ExpenseMapping.builder()
+                        .withExpense(expense)
+                        .withUser(user)
+                        .build())
+                .toList();
         expenseMappingsRepository.saveAll(expenseMappings);
 
         updateBalances(paidUser, splitDetails, group);
@@ -368,13 +370,14 @@ public class ExpenseService {
                 .orElseThrow(() -> new NoSuchElementException("User not found: " + authorEmail));
 
         Timestamp now = Timestamp.from(Instant.now());
-        Comments comment = new Comments();
-        comment.setExpense(expense);
-        comment.setAddedBy(author);
-        comment.setContent(req.getContent().trim());
-        comment.setCommentType(AppConstants.CommentType.USER);
-        comment.setCreatedAt(now);
-        comment.setUpdatedAt(now);
+        Comments comment = Comments.builder()
+                .withExpense(expense)
+                .withAddedBy(author)
+                .withContent(req.getContent().trim())
+                .withCommentType(AppConstants.CommentType.USER)
+                .withCreatedAt(now)
+                .withUpdatedAt(now)
+                .build();
         commentsRepository.save(comment);
 
         expense.setCommentsCount((int) commentsRepository.countByExpenseExpenseId(expenseId));

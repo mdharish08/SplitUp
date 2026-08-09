@@ -1,7 +1,8 @@
 package com.harish.splitup.service;
 
 import com.harish.splitup.constants.AppConstants;
-import com.harish.splitup.dto.UserGroupMeta;
+import com.harish.splitup.dto.CreateGroupRequestDto;
+import com.harish.splitup.dto.GroupMetaResponseDto;
 import com.harish.splitup.entities.Balance;
 import com.harish.splitup.entities.Group;
 import com.harish.splitup.entities.GroupMapping;
@@ -18,8 +19,13 @@ import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -31,52 +37,53 @@ public class GroupService {
     private final BalanceRepository balanceRepository;
 
     @Transactional
-    public UserGroupMeta createGroup(Long userId, UserGroupMeta groupMeta) {
-        if (groupMeta == null || groupMeta.getName() == null || groupMeta.getName().isBlank()) {
+    public GroupMetaResponseDto createGroup(Long userId, CreateGroupRequestDto req) {
+        if (req == null || req.name() == null || req.name().isBlank()) {
             throw new IllegalArgumentException("Group name is required");
         }
-        if (groupMeta.getMembers() == null || groupMeta.getMembers().isEmpty()) {
+        if (req.members() == null || req.members().isEmpty()) {
             throw new IllegalArgumentException("At least one member is required");
         }
-        if (groupMeta.getGroupType() == null) {
+        if (req.groupType() == null) {
             throw new IllegalArgumentException("Group type is required");
         }
-        if (groupMeta.getCurrencyCode() == null) {
+        if (req.currencyCode() == null) {
             throw new IllegalArgumentException("Currency code is required");
         }
 
-        AppConstants.GroupType groupType;
-        AppConstants.CurrencyCode currencyCode;
-        try {
-            groupType = AppConstants.GroupType.valueOf(groupMeta.getGroupType());
-            currencyCode = AppConstants.CurrencyCode.valueOf(groupMeta.getCurrencyCode());
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Invalid groupType or currencyCode: " + e.getMessage());
-        }
-
-        userRepository.findById(userId)
-                .orElseThrow(() -> new NoSuchElementException("User not found: " + userId));
-
         List<Long> memberIds = new ArrayList<>();
-        for (UserGroupMeta.GroupMemberMeta member : groupMeta.getMembers()) {
-            if (member.getId() == null) {
+        for (CreateGroupRequestDto.GroupMemberRequestDto member : req.members()) {
+            if (member.id() == null) {
                 throw new IllegalArgumentException("Each member must have an id");
             }
-            memberIds.add(member.getId());
+            memberIds.add(member.id());
         }
 
-        List<SplitUser> members = userRepository.findAllById(memberIds);
-        if (members.size() != memberIds.size()) {
-            throw new IllegalArgumentException("One or more members not found");
+        Set<Long> requiredUserIds = new LinkedHashSet<>(memberIds);
+        requiredUserIds.add(userId);
+        Map<Long, SplitUser> usersById = userRepository.findAllById(requiredUserIds).stream()
+                .collect(Collectors.toMap(SplitUser::getId, Function.identity()));
+
+        if (!usersById.containsKey(userId)) {
+            throw new NoSuchElementException("User not found: " + userId);
+        }
+
+        List<SplitUser> members = new ArrayList<>();
+        for (Long memberId : memberIds) {
+            SplitUser member = usersById.get(memberId);
+            if (member == null) {
+                throw new IllegalArgumentException("One or more members not found");
+            }
+            members.add(member);
         }
 
         Timestamp now = Timestamp.from(Instant.now());
         Group group = Group.builder()
-                .withGroupName(groupMeta.getName())
-                .withGroupType(groupType)
-                .withCurrencyCode(currencyCode)
+                .withGroupName(req.name())
+                .withGroupType(req.groupType())
+                .withCurrencyCode(req.currencyCode())
                 .withCreatedBy(userId)
-                .withGroupDescription(groupMeta.getDescription())
+                .withGroupDescription(req.description())
                 .withCreatedAt(now)
                 .withUpdatedAt(now)
                 .build();
@@ -96,27 +103,33 @@ public class GroupService {
                             .withUser(member)
                             .withFriend(friend)
                             .withAmount(BigDecimal.ZERO)
-                            .withCurrencyCode(currencyCode)
+                            .withCurrencyCode(req.currencyCode())
                             .build());
                 }
             }
         }
         balanceRepository.saveAll(balances);
 
-        List<UserGroupMeta.GroupMemberMeta> membersMeta = members.stream().map(m -> {
-            UserGroupMeta.GroupMemberMeta meta = new UserGroupMeta.GroupMemberMeta();
-            meta.setId(m.getId());
-            meta.setEmail(m.getEmailId());
-            meta.setFirstName(m.getFirstName());
-            meta.setLastName(m.getLastName());
-            meta.setRegistrationStatus(m.isEmailVerified() ? "verified" : "not_verified");
-            return meta;
-        }).toList();
+        List<GroupMetaResponseDto.GroupMemberResponseDto> membersMeta = members.stream()
+                .map(m -> new GroupMetaResponseDto.GroupMemberResponseDto(
+                        m.getId(),
+                        m.getEmailId(),
+                        m.getFirstName(),
+                        m.getLastName(),
+                        m.isEmailVerified() ? "verified" : "not_verified",
+                        null
+                ))
+                .toList();
 
-        groupMeta.setId(group.getGroupId());
-        groupMeta.setMembers(membersMeta);
-        groupMeta.setCreatedAt(group.getCreatedAt());
-        groupMeta.setUpdatedAt(group.getUpdatedAt());
-        return groupMeta;
+        return new GroupMetaResponseDto(
+                group.getGroupId(),
+                group.getGroupName(),
+                group.getGroupType(),
+                group.getCurrencyCode(),
+                group.getGroupDescription(),
+                group.getCreatedAt(),
+                group.getUpdatedAt(),
+                membersMeta
+        );
     }
 }

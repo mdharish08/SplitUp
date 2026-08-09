@@ -1,5 +1,6 @@
 package com.harish.splitup.config;
 
+import com.harish.splitup.constants.AppConstants;
 import com.harish.splitup.dto.*;
 import com.harish.splitup.entities.Category;
 import com.harish.splitup.repositories.CategoryRepository;
@@ -32,11 +33,7 @@ public class SeedDataRunner implements CommandLineRunner {
         if (categoryRepository.count() == 0) {
             Stream.of("Food & Drink", "Transportation", "Entertainment",
                             "Utilities", "Rent", "Shopping", "Other")
-                    .map(name -> {
-                        Category c = new Category();
-                        c.setName(name);
-                        return c;
-                    })
+                    .map(name -> Category.builder().withName(name).build())
                     .forEach(categoryRepository::save);
         }
 
@@ -175,28 +172,26 @@ public class SeedDataRunner implements CommandLineRunner {
     }
 
     private Long createGroup(Long creatorId, String name, String type, String desc,
-                             List<UserGroupMeta.GroupMemberMeta> memberList) {
+                             List<CreateGroupRequestDto.GroupMemberRequestDto> memberList) {
         try {
-            UserGroupMeta meta = new UserGroupMeta();
-            meta.setName(name);
-            meta.setGroupType(type);
-            meta.setCurrencyCode("USD");
-            meta.setDescription(desc);
-            meta.setMembers(memberList);
-            return groupService.createGroup(creatorId, meta).getId();
+            CreateGroupRequestDto req = new CreateGroupRequestDto(
+                    name,
+                    AppConstants.GroupType.valueOf(type),
+                    AppConstants.CurrencyCode.USD,
+                    desc,
+                    memberList
+            );
+            return groupService.createGroup(creatorId, req).id();
         } catch (Exception e) {
             System.out.printf("  [Seed] warn createGroup(%s): %s%n", name, e.getMessage());
             return null;
         }
     }
 
-    private List<UserGroupMeta.GroupMemberMeta> members(Object... pairs) {
-        List<UserGroupMeta.GroupMemberMeta> list = new ArrayList<>();
+    private List<CreateGroupRequestDto.GroupMemberRequestDto> members(Object... pairs) {
+        List<CreateGroupRequestDto.GroupMemberRequestDto> list = new ArrayList<>();
         for (int i = 0; i < pairs.length; i += 2) {
-            UserGroupMeta.GroupMemberMeta m = new UserGroupMeta.GroupMemberMeta();
-            m.setId((Long) pairs[i]);
-            m.setEmail((String) pairs[i + 1]);
-            list.add(m);
+            list.add(new CreateGroupRequestDto.GroupMemberRequestDto((Long) pairs[i]));
         }
         return list;
     }

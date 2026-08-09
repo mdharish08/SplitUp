@@ -1,7 +1,8 @@
 package com.harish.splitup.service;
 
 import com.harish.splitup.constants.AppConstants;
-import com.harish.splitup.dto.UserGroupMeta;
+import com.harish.splitup.dto.CreateGroupRequestDto;
+import com.harish.splitup.dto.GroupMetaResponseDto;
 import com.harish.splitup.entities.Balance;
 import com.harish.splitup.entities.Group;
 import com.harish.splitup.entities.GroupMapping;
@@ -60,22 +61,12 @@ class GroupServiceTest {
                 .withEmailId("carol@example.com").withUserPassWord("encoded").build();
     }
 
-    private UserGroupMeta buildGroupMeta(String name, String groupType, String currencyCode,
-                                          List<Long> memberIds) {
-        UserGroupMeta meta = new UserGroupMeta();
-        meta.setName(name);
-        meta.setGroupType(groupType);
-        meta.setCurrencyCode(currencyCode);
-        meta.setDescription("Test group");
-
-        List<UserGroupMeta.GroupMemberMeta> members = new ArrayList<>();
-        for (Long id : memberIds) {
-            UserGroupMeta.GroupMemberMeta m = new UserGroupMeta.GroupMemberMeta();
-            m.setId(id);
-            members.add(m);
-        }
-        meta.setMembers(members);
-        return meta;
+    private CreateGroupRequestDto buildGroupRequest(String name, AppConstants.GroupType groupType,
+                                                    AppConstants.CurrencyCode currencyCode, List<Long> memberIds) {
+        List<CreateGroupRequestDto.GroupMemberRequestDto> members = memberIds.stream()
+                .map(CreateGroupRequestDto.GroupMemberRequestDto::new)
+                .toList();
+        return new CreateGroupRequestDto(name, groupType, currencyCode, "Test group", members);
     }
 
     // ── createGroup ───────────────────────────────────────────────────────────
@@ -83,59 +74,63 @@ class GroupServiceTest {
     @Test
     void createGroup_happyPath_savesGroupMappingsAndBalances() {
         // given
-        UserGroupMeta meta = buildGroupMeta("Weekend Trip", "TRIP", "USD",
+        CreateGroupRequestDto req = buildGroupRequest("Weekend Trip", AppConstants.GroupType.TRIP, AppConstants.CurrencyCode.USD,
                 List.of(1L, 2L, 3L));
 
-        given(userRepository.findById(1L)).willReturn(Optional.of(creator));
-        given(userRepository.findAllById(List.of(1L, 2L, 3L)))
+        given(userRepository.findAllById(anyIterable()))
                 .willReturn(List.of(creator, member1, member2));
 
         // when
-        UserGroupMeta result = groupService.createGroup(1L, meta);
+        GroupMetaResponseDto result = groupService.createGroup(1L, req);
 
         // then
         then(groupRepository).should(times(1)).save(any(Group.class));
         then(groupMappingRepository).should(times(1)).saveAll(anyList());
         then(balanceRepository).should(times(1)).saveAll(anyList());
-        assertThat(result.getName()).isEqualTo("Weekend Trip");
-        assertThat(result.getMembers()).hasSize(3);
+        assertThat(result.name()).isEqualTo("Weekend Trip");
+        assertThat(result.members()).hasSize(3);
     }
 
     @Test
     void createGroup_missingName_throwsIllegalArgument() {
-        UserGroupMeta meta = buildGroupMeta("", "TRIP", "USD", List.of(1L, 2L));
+        CreateGroupRequestDto req = buildGroupRequest("", AppConstants.GroupType.TRIP, AppConstants.CurrencyCode.USD, List.of(1L, 2L));
 
-        assertThatThrownBy(() -> groupService.createGroup(1L, meta))
+        assertThatThrownBy(() -> groupService.createGroup(1L, req))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Group name is required");
     }
 
     @Test
     void createGroup_emptyMembers_throwsIllegalArgument() {
-        UserGroupMeta meta = buildGroupMeta("My Group", "HOME", "USD", List.of());
+        CreateGroupRequestDto req = buildGroupRequest("My Group", AppConstants.GroupType.HOME, AppConstants.CurrencyCode.USD, List.of());
 
-        assertThatThrownBy(() -> groupService.createGroup(1L, meta))
+        assertThatThrownBy(() -> groupService.createGroup(1L, req))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("At least one member is required");
     }
 
     @Test
-    void createGroup_invalidGroupType_throwsIllegalArgument() {
-        UserGroupMeta meta = buildGroupMeta("My Group", "INVALID_TYPE", "USD", List.of(1L, 2L));
+    void createGroup_missingGroupType_throwsIllegalArgument() {
+        CreateGroupRequestDto req = new CreateGroupRequestDto(
+                "My Group",
+                null,
+                AppConstants.CurrencyCode.USD,
+                "Test group",
+                List.of(new CreateGroupRequestDto.GroupMemberRequestDto(1L))
+        );
 
-        assertThatThrownBy(() -> groupService.createGroup(1L, meta))
+        assertThatThrownBy(() -> groupService.createGroup(1L, req))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Invalid groupType");
+                .hasMessageContaining("Group type is required");
     }
 
     @Test
     void createGroup_memberNotFound_throwsIllegalArgument() {
         // given – only 1 of the 2 requested members is found
-        UserGroupMeta meta = buildGroupMeta("My Group", "HOME", "USD", List.of(2L, 99L));
-        given(userRepository.findById(1L)).willReturn(Optional.of(creator));
-        given(userRepository.findAllById(List.of(2L, 99L))).willReturn(List.of(member1)); // one missing
+        CreateGroupRequestDto req = buildGroupRequest("My Group", AppConstants.GroupType.HOME, AppConstants.CurrencyCode.USD, List.of(2L, 99L));
+        given(userRepository.findAllById(anyIterable())).willReturn(List.of(creator, member1)); // one missing
 
-        assertThatThrownBy(() -> groupService.createGroup(1L, meta))
+        assertThatThrownBy(() -> groupService.createGroup(1L, req))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("One or more members not found");
     }
@@ -144,13 +139,12 @@ class GroupServiceTest {
     @SuppressWarnings("unchecked")
     void createGroup_createsNxNBalanceRecords() {
         // given – 3 members → 3*(3-1) = 6 balance rows
-        UserGroupMeta meta = buildGroupMeta("Team", "OTHER", "USD", List.of(1L, 2L, 3L));
-        given(userRepository.findById(1L)).willReturn(Optional.of(creator));
-        given(userRepository.findAllById(List.of(1L, 2L, 3L)))
+        CreateGroupRequestDto req = buildGroupRequest("Team", AppConstants.GroupType.OTHER, AppConstants.CurrencyCode.USD, List.of(1L, 2L, 3L));
+        given(userRepository.findAllById(anyIterable()))
                 .willReturn(List.of(creator, member1, member2));
 
         // when
-        groupService.createGroup(1L, meta);
+        groupService.createGroup(1L, req);
 
         // then – capture the balances list and verify count
         ArgumentCaptor<List<Balance>> captor = ArgumentCaptor.forClass(List.class);

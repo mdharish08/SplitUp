@@ -1,7 +1,5 @@
 package com.harish.splitup.auth;
 
-import com.harish.splitup.entities.SplitUser;
-import com.harish.splitup.service.JwtService;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -9,6 +7,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Component;
+
+import com.harish.splitup.entities.SplitUser;
+import com.harish.splitup.service.JwtService;
 
 @Component
 public class JwtAuthenticationProvider implements AuthenticationProvider {
@@ -30,7 +31,7 @@ public class JwtAuthenticationProvider implements AuthenticationProvider {
         if(jwtAuthToken.getToken() == null || jwtAuthToken.getToken().isEmpty()){
              throw new IllegalArgumentException("jwt token can't be null or empty");
         }
-
+        
         String userName = this.jwtService.validateAndGetUserName(jwtAuthToken.getToken());
         if(userName == null){
             throw new BadCredentialsException("Invalid jwt token");
