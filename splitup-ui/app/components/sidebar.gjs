@@ -73,11 +73,15 @@ export default class Sidebar extends Component {
   }
 
   get registeredFriends() {
-    return this.friends.filter((f) => f.id);
+    return this.friends.filter((f) => f.id && f.registrationStatus !== 'pending');
   }
 
   get pendingFriends() {
-    return this.friends.filter((f) => !f.id);
+    return this.friends.filter((f) => f.registrationStatus === 'pending' || !f.id);
+  }
+
+  get hasFriendRows() {
+    return this.registeredFriends.length || this.pendingFriends.length;
   }
 
   friendBalance(friend) {
@@ -151,7 +155,7 @@ export default class Sidebar extends Component {
       {{/if}}
 
       {{! ── Friends ── }}
-      {{#if this.registeredFriends.length}}
+      {{#if this.hasFriendRows}}
         <div class="sidebar-divider"></div>
         <div class="sidebar-friend-list">
           <p class="sidebar-section-label">Friends</p>

@@ -1,12 +1,12 @@
 package com.harish.splitup.service;
 
-import com.harish.splitup.constants.AppConstants;
 import com.harish.splitup.dto.CreateGroupRequestDto;
 import com.harish.splitup.dto.GroupMetaResponseDto;
 import com.harish.splitup.entities.Balance;
 import com.harish.splitup.entities.Group;
 import com.harish.splitup.entities.GroupMapping;
 import com.harish.splitup.entities.SplitUser;
+import com.harish.splitup.constants.AppConstants;
 import com.harish.splitup.repositories.BalanceRepository;
 import com.harish.splitup.repositories.GroupMappingRepository;
 import com.harish.splitup.repositories.GroupRepository;
@@ -116,7 +116,9 @@ public class GroupService {
                         m.getEmailId(),
                         m.getFirstName(),
                         m.getLastName(),
-                        m.isEmailVerified() ? "verified" : "not_verified",
+                        m.getAccountStatus() == AppConstants.AccountStatus.INVITED
+                                ? "pending"
+                                : (m.isEmailVerified() ? "verified" : "not_verified"),
                         null
                 ))
                 .toList();

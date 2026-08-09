@@ -19,11 +19,15 @@ function balanceLabel(friend) {
 
 class FriendsIndexTemplate extends Component {
   get registered() {
-    return (this.args.model.friends ?? []).filter((f) => f.id != null);
+    return (this.args.model.friends ?? []).filter(
+      (f) => f.id != null && f.registrationStatus !== 'pending',
+    );
   }
 
   get pending() {
-    return (this.args.model.friends ?? []).filter((f) => f.id == null);
+    return (this.args.model.friends ?? []).filter(
+      (f) => f.registrationStatus === 'pending' || f.id == null,
+    );
   }
 
   avatarStyle(friend) {

@@ -18,8 +18,11 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -35,28 +38,53 @@ public class UserService {
 
     @Transactional
     public UserDto registerUser(SignupRequestDto req) {
-        if (userRepository.findByEmailId(req.getEmailId()).isPresent()) {
-            throw new IllegalStateException("Email already registered: " + req.getEmailId());
+        String normalizedEmail = normalizeEmail(req.getEmailId());
+        SplitUser existing = userRepository.findByEmailId(normalizedEmail).orElse(null);
+        Timestamp now = new Timestamp(System.currentTimeMillis());
+
+        SplitUser user;
+        if (existing != null && existing.getAccountStatus() != AppConstants.AccountStatus.INVITED) {
+            throw new IllegalStateException("Email already registered: " + normalizedEmail);
+        } else if (existing != null) {
+            existing.setFirstName(req.getFirstName());
+            existing.setLastName(req.getLastName());
+            existing.setEmailId(normalizedEmail);
+            existing.setUserPassWord(passwordEncoder.encode(req.getPassword()));
+            existing.setAccountStatus(AppConstants.AccountStatus.ACTIVE);
+            existing.setUpdatedAt(now);
+            user = userRepository.save(existing);
+        } else {
+            user = SplitUser.builder()
+                    .withFirstName(req.getFirstName())
+                    .withLastName(req.getLastName())
+                    .withEmailId(normalizedEmail)
+                    .withUserPassWord(passwordEncoder.encode(req.getPassword()))
+                    .withAccountStatus(AppConstants.AccountStatus.ACTIVE)
+                    .withCreatedAt(now)
+                    .withUpdatedAt(now)
+                    .build();
+            user = userRepository.save(user);
         }
-        SplitUser user = SplitUser.builder()
-                .withFirstName(req.getFirstName())
-                .withLastName(req.getLastName())
-                .withEmailId(req.getEmailId())
-                .withUserPassWord(passwordEncoder.encode(req.getPassword()))
-                .build();
-        userRepository.save(user);
 
         // Convert any pending invites that were sent to this email into real friendships
         List<PendingFriendInvite> pendingInvites =
-                pendingInviteRepository.findAllByInviteeEmail(req.getEmailId());
+                pendingInviteRepository.findAllByInviteeEmail(normalizedEmail);
 
         if (!pendingInvites.isEmpty()) {
-            Timestamp now = new Timestamp(System.currentTimeMillis());
             List<Friends> newFriendships = new ArrayList<>();
             List<Balance> newBalances = new ArrayList<>();
+            Set<Long> inviterIds = new java.util.HashSet<>();
 
             for (PendingFriendInvite invite : pendingInvites) {
                 SplitUser inviter = invite.getInviter();
+                if (inviter == null || inviter.getId() == null || inviterIds.contains(inviter.getId())) {
+                    continue;
+                }
+                inviterIds.add(inviter.getId());
+
+                if (friendsRepository.findExisting(inviter.getId(), user.getId()).isPresent()) {
+                    continue;
+                }
 
                 Friends friendship = Friends.builder()
                         .withUser(inviter)
@@ -178,48 +206,35 @@ public class UserService {
 
     @Transactional
     public FriendsDto addFriend(long userId, AddFriendRequestDto req) {
-        if (req.getEmailId() == null || req.getEmailId().isBlank()) {
-            throw new IllegalArgumentException("Friend email is required");
-        }
+        String inviteeEmail = normalizeEmail(req.getEmailId());
 
         SplitUser currentUser = userRepository.findById(userId)
                 .orElseThrow(() -> new NoSuchElementException("User not found: " + userId));
 
-        if (req.getEmailId().equalsIgnoreCase(currentUser.getEmailId())) {
+        if (inviteeEmail.equals(normalizeEmail(currentUser.getEmailId()))) {
             throw new IllegalArgumentException("You cannot add yourself as a friend");
         }
 
         AppConstants.CurrencyCode currencyCode = req.getCurrencyCode() != null
-                ? AppConstants.CurrencyCode.valueOf(req.getCurrencyCode())
+                ? AppConstants.CurrencyCode.valueOf(req.getCurrencyCode().trim().toUpperCase(Locale.ROOT))
                 : AppConstants.CurrencyCode.USD;
 
-        SplitUser friendUser = userRepository.findByEmailId(req.getEmailId()).orElse(null);
+        SplitUser friendUser = userRepository.findByEmailId(inviteeEmail).orElse(null);
 
         if (friendUser == null) {
-            // Invitee not registered yet — create a pending invite
-            if (pendingInviteRepository.findByInviterIdAndInviteeEmail(userId, req.getEmailId()).isPresent()) {
-                throw new IllegalStateException("You already sent an invite to this email");
-            }
-
+            // Invitee not registered yet — create an invited account so they can be used in splits immediately.
             Timestamp now = new Timestamp(System.currentTimeMillis());
-            PendingFriendInvite invite = PendingFriendInvite.builder()
-                    .withInviter(currentUser)
-                    .withInviteeEmail(req.getEmailId())
-                    .withCurrencyCode(currencyCode)
+            friendUser = SplitUser.builder()
+                    .withEmailId(inviteeEmail)
+                    .withFirstName(inviteeEmail)
+                    .withUserPassWord(passwordEncoder.encode(UUID.randomUUID().toString()))
+                    .withAccountStatus(AppConstants.AccountStatus.INVITED)
                     .withCreatedAt(now)
+                    .withUpdatedAt(now)
                     .build();
-            pendingInviteRepository.save(invite);
-
-            // Return a DTO signalling the invite is pending
-            FriendsDto dto = new FriendsDto();
-            dto.setEmailId(req.getEmailId());
-            dto.setFirstName(req.getEmailId());
-            dto.setRegistrationStatus("pending");
-            dto.setGroups(new ArrayList<>());
-            return dto;
+            friendUser = userRepository.save(friendUser);
         }
 
-        // Invitee already registered — create friendship immediately
         if (friendsRepository.findExisting(userId, friendUser.getId()).isPresent()) {
             throw new IllegalStateException("You are already friends with this user");
         }
@@ -254,7 +269,7 @@ public class UserService {
         dto.setLastName(friendUser.getLastName());
         dto.setUserName(friendUser.getUsername());
         dto.setEmailId(friendUser.getEmailId());
-        dto.setRegistrationStatus(friendUser.isEmailVerified() ? "verified" : "not_verified");
+        dto.setRegistrationStatus(resolveRegistrationStatus(friendUser));
         dto.setBalanceDto(userToFriend.balanceDto());
         dto.setGroups(new ArrayList<>());
         return dto;
@@ -266,7 +281,7 @@ public class UserService {
                 member.getEmailId(),
                 member.getFirstName(),
                 member.getLastName(),
-                member.isEmailVerified() ? "verified" : "not_verified",
+                resolveRegistrationStatus(member),
                 balance != null ? balance.balanceDto() : null
         );
     }
@@ -278,7 +293,7 @@ public class UserService {
         dto.setLastName(friendMeta.getLastName());
         dto.setUserName(friendMeta.getUsername());
         dto.setEmailId(friendMeta.getEmailId());
-        dto.setRegistrationStatus(friendMeta.isEmailVerified() ? "verified" : "not_verified");
+        dto.setRegistrationStatus(resolveRegistrationStatus(friendMeta));
         return dto;
     }
 
@@ -287,5 +302,19 @@ public class UserService {
         groupDto.setBalanceDto(groupBalance.balanceDto());
         groupDto.setGroupId(groupBalance.getGroup().getGroupId());
         return groupDto;
+    }
+
+    private String normalizeEmail(String email) {
+        if (email == null || email.isBlank()) {
+            throw new IllegalArgumentException("Email is required");
+        }
+        return email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String resolveRegistrationStatus(SplitUser user) {
+        if (user.getAccountStatus() == AppConstants.AccountStatus.INVITED) {
+            return "pending";
+        }
+        return user.isEmailVerified() ? "verified" : "not_verified";
     }
 }

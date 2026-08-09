@@ -77,6 +77,28 @@ module('Integration | Component | sidebar', function (hooks) {
     assert.dom('.sidebar-friend-item').exists({ count: 2 });
   });
 
+  test('shows pending invites even when there are no registered friends', async function (assert) {
+    class PendingOnlyApiService extends Service {
+      get(path) {
+        if (path.includes('/friends/')) {
+          return Promise.resolve({
+            code: 0,
+            data: [{ id: 9, emailId: 'pending@example.com', registrationStatus: 'pending' }],
+          });
+        }
+        return Promise.resolve({ code: 0, data: [] });
+      }
+    }
+    this.owner.register('service:api', PendingOnlyApiService);
+
+    await render(<template><Sidebar /></template>);
+    await settled();
+
+    assert.dom('.sidebar-item--pending').exists({ count: 1 });
+    assert.dom('.sidebar-pending-email').hasText('pending@example.com');
+    assert.dom('.sidebar-friend-item').doesNotExist();
+  });
+
   test('shows a balance badge for friends with non-zero balance', async function (assert) {
     await render(<template><Sidebar /></template>);
     await settled();

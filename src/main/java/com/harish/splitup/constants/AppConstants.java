@@ -22,4 +22,8 @@ public class AppConstants {
         USD, EUR, INR, GBP, JPY,
     }
 
+    public enum AccountStatus {
+        INVITED, ACTIVE
+    }
+
 }

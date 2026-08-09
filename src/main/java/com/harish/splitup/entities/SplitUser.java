@@ -44,6 +44,10 @@ public class SplitUser implements UserDetails, Comparable<SplitUser>{
     @Enumerated(EnumType.STRING)
     private AppConstants.Gender gender;
 
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    private AppConstants.AccountStatus accountStatus = AppConstants.AccountStatus.ACTIVE;
+
     private boolean isEmailVerified;
 
     private boolean trashed;
@@ -107,7 +111,11 @@ public class SplitUser implements UserDetails, Comparable<SplitUser>{
         dto.setFirstName(this.getFirstName());
         dto.setLastName(this.getLastName());
         dto.setEmailId(this.getEmailId());
-        dto.setRegistrationStatus(this.isEmailVerified() ? "verified" : "not_verified");
+        if (this.getAccountStatus() == AppConstants.AccountStatus.INVITED) {
+            dto.setRegistrationStatus("pending");
+        } else {
+            dto.setRegistrationStatus(this.isEmailVerified() ? "verified" : "not_verified");
+        }
         dto.setUpdatedAt(this.getUpdatedAt());
         return dto;
     }

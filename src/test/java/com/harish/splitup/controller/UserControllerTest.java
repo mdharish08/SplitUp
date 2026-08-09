@@ -1,9 +1,11 @@
 package com.harish.splitup.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.harish.splitup.constants.AppConstants;
 import com.harish.splitup.controllers.UserController;
 import com.harish.splitup.dto.AddFriendRequestDto;
 import com.harish.splitup.dto.FriendsDto;
+import com.harish.splitup.entities.SplitUser;
 import com.harish.splitup.repositories.CategoryRepository;
 import com.harish.splitup.repositories.UserRepository;
 import com.harish.splitup.service.JwtService;
@@ -13,7 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
-import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.ArrayList;
@@ -21,12 +23,12 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(UserController.class)
-@WithMockUser
 class UserControllerTest {
 
     @Autowired MockMvc mockMvc;
@@ -39,6 +41,15 @@ class UserControllerTest {
 
     // Controller dependency
     @MockBean UserService userService;
+
+    private UsernamePasswordAuthenticationToken authFor(long userId, String email) {
+        SplitUser principal = SplitUser.builder()
+                .withId(userId)
+                .withEmailId(email)
+                .withAccountStatus(AppConstants.AccountStatus.ACTIVE)
+                .build();
+        return new UsernamePasswordAuthenticationToken(principal, null, List.of());
+    }
 
     private FriendsDto registeredFriend() {
         FriendsDto dto = new FriendsDto();
@@ -73,7 +84,8 @@ class UserControllerTest {
     void getFriendsMeta_success_returns200() throws Exception {
         given(userService.getFriendsMeta(1L)).willReturn(List.of(registeredFriend()));
 
-        mockMvc.perform(get("/api/v1/friends/1"))
+        mockMvc.perform(get("/api/v1/friends/1")
+                        .with(authentication(authFor(1L, "alice@example.com"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").isArray())
                 .andExpect(jsonPath("$.data[0].emailId").value("bob@example.com"));
@@ -87,6 +99,7 @@ class UserControllerTest {
                 .willReturn(registeredFriend());
 
         mockMvc.perform(post("/api/v1/friends/1")
+                        .with(authentication(authFor(1L, "alice@example.com")))
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(addFriendRequest("bob@example.com"))))
@@ -100,6 +113,7 @@ class UserControllerTest {
                 .willReturn(pendingFriend("stranger@example.com"));
 
         mockMvc.perform(post("/api/v1/friends/1")
+                        .with(authentication(authFor(1L, "alice@example.com")))
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(addFriendRequest("stranger@example.com"))))
@@ -113,6 +127,7 @@ class UserControllerTest {
                 .willThrow(new IllegalStateException("already friends"));
 
         mockMvc.perform(post("/api/v1/friends/1")
+                        .with(authentication(authFor(1L, "alice@example.com")))
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(addFriendRequest("bob@example.com"))))
@@ -126,10 +141,18 @@ class UserControllerTest {
                 .willThrow(new IllegalArgumentException("You cannot add yourself as a friend"));
 
         mockMvc.perform(post("/api/v1/friends/1")
+                        .with(authentication(authFor(1L, "alice@example.com")))
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(addFriendRequest("alice@example.com"))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("You cannot add yourself as a friend"));
+    }
+
+    @Test
+    void getFriendsMeta_userIdMismatch_returns403() throws Exception {
+        mockMvc.perform(get("/api/v1/friends/99")
+                        .with(authentication(authFor(1L, "alice@example.com"))))
+                .andExpect(status().isForbidden());
     }
 }

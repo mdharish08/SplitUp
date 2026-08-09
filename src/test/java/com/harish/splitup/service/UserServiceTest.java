@@ -10,7 +10,6 @@ import com.harish.splitup.repositories.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -55,6 +54,7 @@ class UserServiceTest {
                 .withLastName("Smith")
                 .withEmailId("alice@example.com")
                 .withUserPassWord("encoded-pw")
+                .withAccountStatus(AppConstants.AccountStatus.ACTIVE)
                 .build();
 
         bob = SplitUser.builder()
@@ -63,6 +63,7 @@ class UserServiceTest {
                 .withLastName("Jones")
                 .withEmailId("bob@example.com")
                 .withUserPassWord("encoded-pw")
+                .withAccountStatus(AppConstants.AccountStatus.ACTIVE)
                 .build();
     }
 
@@ -90,6 +91,13 @@ class UserServiceTest {
         SignupRequestDto req = signupRequest("alice@example.com");
         given(userRepository.findByEmailId("alice@example.com")).willReturn(Optional.empty());
         given(passwordEncoder.encode("secret123")).willReturn("hashed");
+        given(userRepository.save(any(SplitUser.class))).willAnswer(i -> {
+            SplitUser saved = i.getArgument(0);
+            if (saved.getId() == null) {
+                saved.setId(100L);
+            }
+            return saved;
+        });
         given(pendingInviteRepository.findAllByInviteeEmail("alice@example.com"))
                 .willReturn(List.of());
 
@@ -106,6 +114,7 @@ class UserServiceTest {
     void registerUser_duplicateEmail_throwsIllegalState() {
         // given
         SignupRequestDto req = signupRequest("alice@example.com");
+        alice.setAccountStatus(AppConstants.AccountStatus.ACTIVE);
         given(userRepository.findByEmailId("alice@example.com")).willReturn(Optional.of(alice));
 
         // when / then
@@ -139,6 +148,13 @@ class UserServiceTest {
 
         given(userRepository.findByEmailId("newuser@example.com")).willReturn(Optional.empty());
         given(passwordEncoder.encode("secret123")).willReturn("hashed");
+        given(userRepository.save(any(SplitUser.class))).willAnswer(i -> {
+            SplitUser saved = i.getArgument(0);
+            if (saved.getId() == null) {
+                saved.setId(101L);
+            }
+            return saved;
+        });
         given(pendingInviteRepository.findAllByInviteeEmail("newuser@example.com"))
                 .willReturn(List.of(invite));
 
@@ -149,6 +165,31 @@ class UserServiceTest {
         then(friendsRepository).should(times(1)).saveAll(anyList());
         then(balanceRepository).should(times(1)).saveAll(anyList());
         then(pendingInviteRepository).should(times(1)).deleteAll(anyList());
+    }
+
+    @Test
+    void registerUser_existingInvitedUser_upgradesSameAccount() {
+        SignupRequestDto req = signupRequest("invited@example.com");
+        SplitUser invited = SplitUser.builder()
+                .withId(42L)
+                .withEmailId("invited@example.com")
+                .withFirstName("invited@example.com")
+                .withUserPassWord("placeholder")
+                .withAccountStatus(AppConstants.AccountStatus.INVITED)
+                .build();
+
+        given(userRepository.findByEmailId("invited@example.com")).willReturn(Optional.of(invited));
+        given(passwordEncoder.encode("secret123")).willReturn("hashed");
+        given(userRepository.save(any(SplitUser.class))).willAnswer(i -> i.getArgument(0));
+        given(pendingInviteRepository.findAllByInviteeEmail("invited@example.com")).willReturn(List.of());
+
+        UserDto result = userService.registerUser(req);
+
+        then(userRepository).should(times(1)).save(invited);
+        assertThat(invited.getAccountStatus()).isEqualTo(AppConstants.AccountStatus.ACTIVE);
+        assertThat(invited.getFirstName()).isEqualTo("Alice");
+        assertThat(result.getId()).isEqualTo(42L);
+        assertThat(result.getRegistrationStatus()).isEqualTo("not_verified");
     }
 
     // ── addFriend ─────────────────────────────────────────────────────────────
@@ -171,21 +212,48 @@ class UserServiceTest {
     }
 
     @Test
-    void addFriend_unregisteredUser_createsPendingInvite() {
+    void addFriend_unregisteredUser_createsInvitedUserAndFriendship() {
         // given – friend email not in the system
         given(userRepository.findById(1L)).willReturn(Optional.of(alice));
         given(userRepository.findByEmailId("stranger@example.com")).willReturn(Optional.empty());
-        given(pendingInviteRepository.findByInviterIdAndInviteeEmail(1L, "stranger@example.com"))
-                .willReturn(Optional.empty());
+        SplitUser invited = SplitUser.builder()
+                .withId(99L)
+                .withEmailId("stranger@example.com")
+                .withFirstName("stranger@example.com")
+                .withAccountStatus(AppConstants.AccountStatus.INVITED)
+                .withUserPassWord("tmp")
+                .build();
+        given(userRepository.save(any(SplitUser.class))).willReturn(invited);
+        given(friendsRepository.findExisting(1L, 99L)).willReturn(Optional.empty());
 
         // when
         FriendsDto result = userService.addFriend(1L, addFriendRequest("stranger@example.com"));
 
         // then
-        then(pendingInviteRepository).should(times(1)).save(any(PendingFriendInvite.class));
-        then(friendsRepository).should(never()).save(any());
+        then(userRepository).should(times(1)).save(any(SplitUser.class));
+        then(friendsRepository).should(times(1)).save(any(Friends.class));
+        then(balanceRepository).should(times(1)).saveAll(anyList());
         assertThat(result.getRegistrationStatus()).isEqualTo("pending");
         assertThat(result.getEmailId()).isEqualTo("stranger@example.com");
+    }
+
+    @Test
+    void addFriend_normalizesInviteEmailBeforeLookup() {
+        given(userRepository.findById(1L)).willReturn(Optional.of(alice));
+        given(userRepository.findByEmailId("stranger@example.com")).willReturn(Optional.empty());
+        SplitUser invited = SplitUser.builder()
+                .withId(99L)
+                .withEmailId("stranger@example.com")
+                .withFirstName("stranger@example.com")
+                .withAccountStatus(AppConstants.AccountStatus.INVITED)
+                .withUserPassWord("tmp")
+                .build();
+        given(userRepository.save(any(SplitUser.class))).willReturn(invited);
+        given(friendsRepository.findExisting(1L, 99L)).willReturn(Optional.empty());
+
+        userService.addFriend(1L, addFriendRequest("  Stranger@Example.com "));
+
+        then(userRepository).should(times(1)).findByEmailId("stranger@example.com");
     }
 
     @Test
@@ -218,27 +286,6 @@ class UserServiceTest {
         assertThatThrownBy(() -> userService.addFriend(1L, addFriendRequest("bob@example.com")))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("already friends");
-    }
-
-    @Test
-    void addFriend_duplicateInvite_throwsIllegalState() {
-        // given – invitee not registered yet; but invite already sent
-        PendingFriendInvite existingInvite = PendingFriendInvite.builder()
-                .withInviter(alice)
-                .withInviteeEmail("stranger@example.com")
-                .withCurrencyCode(AppConstants.CurrencyCode.USD)
-                .withCreatedAt(new Timestamp(System.currentTimeMillis()))
-                .build();
-
-        given(userRepository.findById(1L)).willReturn(Optional.of(alice));
-        given(userRepository.findByEmailId("stranger@example.com")).willReturn(Optional.empty());
-        given(pendingInviteRepository.findByInviterIdAndInviteeEmail(1L, "stranger@example.com"))
-                .willReturn(Optional.of(existingInvite));
-
-        // when / then
-        assertThatThrownBy(() -> userService.addFriend(1L, addFriendRequest("stranger@example.com")))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("already sent an invite");
     }
 
     // ── getFriendsMeta ────────────────────────────────────────────────────────
