@@ -3,7 +3,7 @@ import { tracked } from '@glimmer/tracking';
 import { action } from '@ember/object';
 import { service } from '@ember/service';
 import { on } from '@ember/modifier';
-import { fn, gt } from '@ember/helper';
+import { fn, gt, lt } from '@ember/helper';
 import { LinkTo } from '@ember/routing';
 import RouteTemplate from 'ember-route-template';
 import BalanceRow from 'splitup-ui/components/balance-row';
@@ -79,6 +79,10 @@ export class IndexTemplate extends Component {
   get settlementCategory() {
     const cats = this.args.model.categories ?? [];
     return cats.find((c) => c.categoryName === 'Other') ?? cats[0];
+  }
+
+  get settleCurrency() {
+    return this.settleTargetFriend?.balanceDto?.currency_code ?? 'USD';
   }
 
   // ── Settle-up modal ──
@@ -188,7 +192,7 @@ export class IndexTemplate extends Component {
           <span class="balance-summary-label">Net Balance</span>
           {{#if this.netByCurrency.length}}
             {{#each this.netByCurrency as |item|}}
-              <span class="balance-summary-value {{if (gt item.amount 0) 'text-positive' 'text-negative'}}">{{item.currency}} {{item.amountFormatted}}</span>
+              <span class="balance-summary-value {{if (gt item.amount 0) 'text-positive' (if (lt item.amount 0) 'text-negative' 'balance-summary-value--neutral')}}">{{item.currency}} {{item.amountFormatted}}</span>
             {{/each}}
           {{else}}
             <span class="balance-summary-value balance-summary-value--neutral">settled up</span>
@@ -246,7 +250,7 @@ export class IndexTemplate extends Component {
           {{/if}}
           <form {{on "submit" this.recordSettlement}}>
             <div class="form-group">
-              <label>Amount ({{this.settleTargetFriend.balanceDto.currency_code}})</label>
+              <label>Amount ({{this.settleCurrency}})</label>
               <input
                 type="number"
                 step="0.01"

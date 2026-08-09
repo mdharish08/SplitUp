@@ -55,7 +55,7 @@ module('Integration | Template | expenses/new', function (hooks) {
   test('renders the expense form', async function (assert) {
     await render(<template><ExpensesNewTemplate @model={{this.model}} /></template>);
 
-    assert.dom('h2').hasText('Add Expense');
+    assert.dom('h1').hasText('Add Expense');
     assert.dom('#expense-desc').exists();
     assert.dom('#cost').exists();
     assert.dom('#category').exists();
@@ -68,45 +68,51 @@ module('Integration | Template | expenses/new', function (hooks) {
     // EQUAL is the default split type
     await fillIn('#cost', '100');
 
-    assert.dom('.form-hint').containsText('Split equally among');
-    assert.dom('.form-hint').containsText('person');
+    assert.dom('.ne-split-total-sub').containsText('among');
+    assert.dom('.ne-split-total-sub').containsText('person');
   });
 
   test('clicking "%" button switches to PERCENTAGE mode and shows % inputs', async function (assert) {
     await render(<template><ExpensesNewTemplate @model={{this.model}} /></template>);
 
+    await fillIn('#cost', '100');
+
     const pctBtn = [...document.querySelectorAll('button[type="button"]')].find(
-      (b) => b.textContent.trim() === '%',
+      (b) => b.textContent.includes('Percent'),
     );
     await click(pctBtn);
 
-    assert.dom('.split-inputs').exists();
+    assert.dom('.share-input').exists();
     assert.dom('.split-unit').hasText('%');
-    assert.dom('.form-hint').containsText('100%');
+    assert.dom('.ne-split-balance').containsText('100%');
   });
 
   test('clicking "Shares" button switches to SHARES mode', async function (assert) {
     await render(<template><ExpensesNewTemplate @model={{this.model}} /></template>);
 
+    await fillIn('#cost', '100');
+
     const sharesBtn = [...document.querySelectorAll('button[type="button"]')].find(
-      (b) => b.textContent.trim() === 'Shares',
+      (b) => b.textContent.includes('Shares'),
     );
     await click(sharesBtn);
 
-    assert.dom('.split-unit').hasText('shares');
-    assert.dom('.form-hint').containsText('Total shares');
+    assert.dom('.split-unit').hasText('sh');
+    assert.dom('.ne-split-hint').containsText('Total shares');
   });
 
   test('clicking "Exact" button switches to EXACT mode and shows remaining hint', async function (assert) {
     await render(<template><ExpensesNewTemplate @model={{this.model}} /></template>);
 
+    await fillIn('#cost', '100');
+
     const exactBtn = [...document.querySelectorAll('button[type="button"]')].find(
-      (b) => b.textContent.trim() === 'Exact',
+      (b) => b.textContent.includes('Exact'),
     );
     await click(exactBtn);
 
-    assert.dom('.split-inputs').exists();
-    assert.dom('.form-hint').containsText('Remaining to assign');
+    assert.dom('.share-input').exists();
+    assert.dom('.ne-split-balance').containsText('remaining');
   });
 
   test('submitting without selecting a category shows "Select a category" error', async function (assert) {
@@ -185,7 +191,7 @@ module('Integration | Template | expenses/new', function (hooks) {
 
     // Group member rows appear in the participant-list
     assert.dom('.participant-member-row').exists({ count: 2 });
-    assert.dom('.participant-member-name').containsText('Jane');
+    assert.dom('.participant-list').containsText('Jane');
   });
 
   test('selecting a group from the dropdown auto-populates participants', async function (assert) {

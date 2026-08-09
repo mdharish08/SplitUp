@@ -12,6 +12,6 @@ import java.util.List;
 @Repository
 public interface ExpenseMappingsRepository extends JpaRepository<ExpenseMapping,Long> {
 
-    @Query("SELECT m.expense FROM ExpenseMapping m WHERE m.user.id = :userId")
+    @Query("SELECT m.expense FROM ExpenseMapping m WHERE m.user.id = :userId AND m.expense.trashed = false")
     List<Expense> findAllExpensesByUserId(@Param("userId") long userId);
 }

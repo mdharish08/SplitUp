@@ -2,7 +2,7 @@ import { module, test } from 'qunit';
 import { setupRenderingTest } from 'splitup-ui/tests/helpers';
 import { render, fillIn, click } from '@ember/test-helpers';
 import Service from '@ember/service';
-import SettingsTemplate from 'splitup-ui/templates/settings';
+import { SettingsTemplate } from 'splitup-ui/templates/settings';
 
 class MockAuthService extends Service {
   userId = '42';
@@ -54,8 +54,8 @@ module('Integration | Template | settings', function (hooks) {
     await render(<template><SettingsTemplate /></template>);
 
     assert.dom('.settings-section-title').exists({ count: 2 });
-    assert.dom('.settings-section:nth-child(1) .settings-section-title').hasText('Profile');
-    assert.dom('.settings-section:nth-child(2) .settings-section-title').hasText('Change Password');
+    assert.dom('.settings-section:nth-child(2) .settings-section-title').hasText('Profile');
+    assert.dom('.settings-section:nth-child(3) .settings-section-title').hasText('Change Password');
   });
 
   test('email field is disabled and shows auth.userEmail', async function (assert) {
@@ -70,7 +70,7 @@ module('Integration | Template | settings', function (hooks) {
 
     await fillIn('#s-first-name', 'Alice');
     await fillIn('#s-last-name', 'Smith');
-    await click('.settings-section:first-child button[type="submit"]');
+    await click('.settings-section:nth-child(2) button[type="submit"]');
 
     const api = this.owner.lookup('service:api');
     assert.strictEqual(api.puts.length, 1);
@@ -83,7 +83,7 @@ module('Integration | Template | settings', function (hooks) {
     await render(<template><SettingsTemplate /></template>);
 
     await fillIn('#s-first-name', 'Alice');
-    await click('.settings-section:first-child button[type="submit"]');
+    await click('.settings-section:nth-child(2) button[type="submit"]');
 
     const toast = this.owner.lookup('service:toast');
     assert.ok(
@@ -98,9 +98,9 @@ module('Integration | Template | settings', function (hooks) {
     await fillIn('#s-current-pw', 'oldpassword');
     await fillIn('#s-new-pw', 'newpassword1');
     await fillIn('#s-confirm-pw', 'differentpassword');
-    await click('.settings-section:nth-child(2) button[type="submit"]');
+    await click('.settings-section:nth-child(3) button[type="submit"]');
 
-    assert.dom('.settings-section:nth-child(2) .error-banner').hasText(
+    assert.dom('.settings-section:nth-child(3) .error-banner').hasText(
       'New passwords do not match',
     );
 
@@ -114,9 +114,9 @@ module('Integration | Template | settings', function (hooks) {
     await fillIn('#s-current-pw', 'oldpassword');
     await fillIn('#s-new-pw', 'short');
     await fillIn('#s-confirm-pw', 'short');
-    await click('.settings-section:nth-child(2) button[type="submit"]');
+    await click('.settings-section:nth-child(3) button[type="submit"]');
 
-    assert.dom('.settings-section:nth-child(2) .error-banner').hasText(
+    assert.dom('.settings-section:nth-child(3) .error-banner').hasText(
       'New password must be at least 8 characters',
     );
   });
@@ -127,7 +127,7 @@ module('Integration | Template | settings', function (hooks) {
     await fillIn('#s-current-pw', 'oldpassword');
     await fillIn('#s-new-pw', 'newpassword1');
     await fillIn('#s-confirm-pw', 'newpassword1');
-    await click('.settings-section:nth-child(2) button[type="submit"]');
+    await click('.settings-section:nth-child(3) button[type="submit"]');
 
     const toast = this.owner.lookup('service:toast');
     assert.ok(
@@ -154,8 +154,8 @@ module('Integration | Template | settings', function (hooks) {
     await render(<template><SettingsTemplate /></template>);
 
     await fillIn('#s-first-name', 'Alice');
-    await click('.settings-section:first-child button[type="submit"]');
+    await click('.settings-section:nth-child(2) button[type="submit"]');
 
-    assert.dom('.settings-section:first-child .error-banner').hasText('Server error');
+    assert.dom('.settings-section:nth-child(2) .error-banner').hasText('Server error');
   });
 });

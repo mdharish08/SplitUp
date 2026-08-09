@@ -3,7 +3,7 @@ import { tracked } from '@glimmer/tracking';
 import { action } from '@ember/object';
 import { service } from '@ember/service';
 import { on } from '@ember/modifier';
-import { fn, eq } from '@ember/helper';
+import { fn, eq, and, not } from '@ember/helper';
 import { LinkTo } from '@ember/routing';
 import RouteTemplate from 'ember-route-template';
 import ExpenseComments from 'splitup-ui/components/expense-comments';
@@ -20,6 +20,7 @@ export class ExpensesExpenseTemplate extends Component {
 
   @tracked isEditing = false;
   @tracked isDeleting = false;
+  @tracked isRestoring = false;
   @tracked errorMessage = null;
   @tracked isLoading = false;
 
@@ -80,6 +81,10 @@ export class ExpensesExpenseTemplate extends Component {
     return this.expense?.expenseType === 'PAYMENT';
   }
 
+  get canManageExpense() {
+    return String(this.expense?.paidBy) === String(this.currentUserId);
+  }
+
   getUserName(userId) {
     const friend = this.friends.find((f) => String(f.id) === String(userId));
     if (friend) return `${friend.firstName} ${friend.lastName}`.trim();
@@ -125,6 +130,10 @@ export class ExpensesExpenseTemplate extends Component {
   @action async saveEdit(event) {
     event.preventDefault();
     this.errorMessage = null;
+    if (this.expense?.trashed) {
+      this.errorMessage = 'Restore the expense before editing.';
+      return;
+    }
 
     const category = this.categories.find(
       (c) => String(c.categoryId) === String(this.selectedCategoryId),
@@ -160,19 +169,30 @@ export class ExpensesExpenseTemplate extends Component {
   }
 
   @action async deleteExpense() {
-    if (!confirm('Delete this expense? This cannot be undone.')) return;
+    if (!confirm('Move this expense to deleted state? You can restore it later.')) return;
     this.isDeleting = true;
     try {
       await this.api.delete(`/api/v1/expense/${this.expense.id}`);
       this.toast?.success('Expense deleted');
-      if (this.expense.groupId) {
-        this.router.transitionTo('groups.group', this.expense.groupId);
-      } else {
-        this.router.transitionTo('expenses.index');
-      }
+      this.router.refresh('expenses.expense');
     } catch (e) {
       this.errorMessage = e.message;
+    } finally {
       this.isDeleting = false;
+    }
+  }
+
+  @action async restoreExpense() {
+    this.isRestoring = true;
+    this.errorMessage = null;
+    try {
+      await this.api.patch(`/api/v1/expense/${this.expense.id}/restore`, {});
+      this.toast?.success('Expense restored');
+      this.router.refresh('expenses.expense');
+    } catch (e) {
+      this.errorMessage = e.message;
+    } finally {
+      this.isRestoring = false;
     }
   }
 
@@ -201,27 +221,44 @@ export class ExpensesExpenseTemplate extends Component {
               {{this.expense.expenseType}}
             </p>
           </div>
-          <div class="expense-detail-actions">
-            <button type="button" class="btn-secondary" {{on "click" this.startEdit}}>
-              Edit
-            </button>
-            <button
-              type="button"
-              class="btn-danger"
-              disabled={{this.isDeleting}}
-              {{on "click" this.deleteExpense}}
-            >
-              {{if this.isDeleting "Deleting…" "Delete"}}
-            </button>
-          </div>
+          {{#if this.canManageExpense}}
+            <div class="expense-detail-actions">
+              {{#if this.expense.trashed}}
+                <button
+                  type="button"
+                  class="btn-primary"
+                  disabled={{this.isRestoring}}
+                  {{on "click" this.restoreExpense}}
+                >
+                  {{if this.isRestoring "Restoring…" "Restore"}}
+                </button>
+              {{else}}
+                <button type="button" class="btn-secondary" {{on "click" this.startEdit}}>
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  class="btn-danger"
+                  disabled={{this.isDeleting}}
+                  {{on "click" this.deleteExpense}}
+                >
+                  {{if this.isDeleting "Deleting…" "Delete"}}
+                </button>
+              {{/if}}
+            </div>
+          {{/if}}
         </div>
 
         {{#if this.errorMessage}}
           <div class="error-banner">{{this.errorMessage}}</div>
         {{/if}}
 
+        {{#if this.expense.trashed}}
+          <div class="error-banner">This expense is deleted. Restore it to edit or comment.</div>
+        {{/if}}
+
         {{! ── Edit form ── }}
-        {{#if this.isEditing}}
+        {{#if (and this.isEditing (not this.expense.trashed))}}
           <form {{on "submit" this.saveEdit}} class="form-card expense-edit-form">
             <h3>Edit Expense</h3>
             <div class="form-group">
@@ -306,10 +343,12 @@ export class ExpensesExpenseTemplate extends Component {
           {{/if}}
         </div>
 
-        <ExpenseComments
-          @expenseId={{this.expense.id}}
-          @comments={{this.comments}}
-        />
+        {{#unless this.expense.trashed}}
+          <ExpenseComments
+            @expenseId={{this.expense.id}}
+            @comments={{this.comments}}
+          />
+        {{/unless}}
       </div>
     {{else}}
       <div class="empty-state">

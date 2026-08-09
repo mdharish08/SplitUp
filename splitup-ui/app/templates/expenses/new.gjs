@@ -78,6 +78,10 @@ export class ExpensesNewTemplate extends Component {
     return (this.args.model.friends ?? []).filter((f) => f.id == null).length;
   }
 
+  get breadcrumbLabel() {
+    return this.selectedGroup?.name ?? 'All Expenses';
+  }
+
   // ── Step gate: show split panel once amount is entered and members are ready ──
   get showSplitPanel() {
     return this.totalCost > 0 && this.participants.length >= 1;
@@ -272,7 +276,7 @@ export class ExpensesNewTemplate extends Component {
       <div class="ne-form-area">
         <div class="page-back">
           <a href="#" {{on "click" this.goBack}}>
-            ← {{if this.args.model.preselectedGroupId this.selectedGroup.name "All Expenses"}}
+            ← {{this.breadcrumbLabel}}
           </a>
         </div>
 
@@ -280,6 +284,12 @@ export class ExpensesNewTemplate extends Component {
           <p class="page-eyebrow">Record</p>
           <h1 class="page-title">Add Expense</h1>
         </div>
+
+        {{#if @model.preselectedGroupId}}
+          <div class="expense-group-context">
+            <span>Group: {{this.selectedGroup.name}}</span>
+          </div>
+        {{/if}}
 
         {{#if this.errorMessage}}
           <div class="error-banner">{{this.errorMessage}}</div>
@@ -394,6 +404,19 @@ export class ExpensesNewTemplate extends Component {
             {{/if}}
           </div>
         {{/unless}}
+
+        {{#if this.groupId}}
+          <div class="form-group">
+            <label>Participants</label>
+            <div class="participant-list">
+              {{#each this.participants key="userId" as |p|}}
+                <div class="participant-member-row">
+                  <span class="participant-member-name">{{p.firstName}} {{p.lastName}}</span>
+                </div>
+              {{/each}}
+            </div>
+          </div>
+        {{/if}}
 
         {{! ── Prompt to enter amount if not yet ── }}
         {{#unless this.showSplitPanel}}

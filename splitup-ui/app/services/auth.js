@@ -20,6 +20,8 @@ export default class AuthService extends Service {
   @tracked token = localStorage.getItem('splitup_token');
   @tracked userId = localStorage.getItem('splitup_userId');
   @tracked userEmail = localStorage.getItem('splitup_email');
+  @tracked userFirstName = localStorage.getItem('splitup_firstName');
+  @tracked userLastName = localStorage.getItem('splitup_lastName');
 
   attemptedTransition = null;
   _expiryTimer = null;
@@ -87,9 +89,13 @@ export default class AuthService extends Service {
     this.token = token;
     this.userId = String(payload.userId);
     this.userEmail = payload.sub;
+    this.userFirstName = payload.firstName ?? '';
+    this.userLastName = payload.lastName ?? '';
     localStorage.setItem('splitup_token', token);
     localStorage.setItem('splitup_userId', this.userId);
     localStorage.setItem('splitup_email', this.userEmail);
+    localStorage.setItem('splitup_firstName', this.userFirstName);
+    localStorage.setItem('splitup_lastName', this.userLastName);
     this._scheduleExpiryWarning();
   }
 
@@ -98,9 +104,13 @@ export default class AuthService extends Service {
     this.token = null;
     this.userId = null;
     this.userEmail = null;
+    this.userFirstName = null;
+    this.userLastName = null;
     localStorage.removeItem('splitup_token');
     localStorage.removeItem('splitup_userId');
     localStorage.removeItem('splitup_email');
+    localStorage.removeItem('splitup_firstName');
+    localStorage.removeItem('splitup_lastName');
     if (reason) {
       // Toast shown by caller or api service
     }

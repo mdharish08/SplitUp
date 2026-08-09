@@ -225,4 +225,5 @@ class SettingsTemplate extends Component {
   </template>
 }
 
+export { SettingsTemplate };
 export default RouteTemplate(SettingsTemplate);

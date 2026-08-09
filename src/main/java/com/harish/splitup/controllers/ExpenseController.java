@@ -39,8 +39,9 @@ public class ExpenseController {
     }
 
     @GetMapping("/{expenseId}")
-    public ResponseEntity<ResponseDto<ExpenseDto>> getExpenseById(@PathVariable Long expenseId) {
-        return ResponseEntity.ok(ResponseDto.success(expenseService.getExpenseById(expenseId)));
+    public ResponseEntity<ResponseDto<ExpenseDto>> getExpenseById(@PathVariable Long expenseId,
+                                                                  Authentication authentication) {
+        return ResponseEntity.ok(ResponseDto.success(expenseService.getExpenseById(expenseId, authentication.getName())));
     }
 
     @PostMapping
@@ -52,15 +53,24 @@ public class ExpenseController {
     @PutMapping("/{expenseId}")
     public ResponseEntity<ResponseDto<ExpenseDto>> updateExpense(
             @PathVariable Long expenseId,
-            @RequestBody ExpenseDto dto) {
-        ExpenseDto updated = expenseService.updateExpense(expenseId, dto);
+            @RequestBody ExpenseDto dto,
+            Authentication authentication) {
+        ExpenseDto updated = expenseService.updateExpense(expenseId, dto, authentication.getName());
         return ResponseEntity.ok(ResponseDto.success(updated));
     }
 
     @DeleteMapping("/{expenseId}")
-    public ResponseEntity<ResponseDto<Void>> deleteExpense(@PathVariable Long expenseId) {
-        expenseService.deleteExpense(expenseId);
+    public ResponseEntity<ResponseDto<Void>> deleteExpense(@PathVariable Long expenseId,
+                                                           Authentication authentication) {
+        expenseService.deleteExpense(expenseId, authentication.getName());
         return ResponseEntity.ok(ResponseDto.success(null));
+    }
+
+    @PatchMapping("/{expenseId}/restore")
+    public ResponseEntity<ResponseDto<ExpenseDto>> restoreExpense(@PathVariable Long expenseId,
+                                                                  Authentication authentication) {
+        ExpenseDto restored = expenseService.restoreExpense(expenseId, authentication.getName());
+        return ResponseEntity.ok(ResponseDto.success(restored));
     }
 
     @GetMapping("/{expenseId}/comments")

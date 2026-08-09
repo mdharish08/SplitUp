@@ -412,9 +412,9 @@ export class GroupsGroupTemplate extends Component {
                   </p>
                   {{#if member.hasBalance}}
                     {{#if member.owedToMe}}
-                      <p class="group-member-balance group-member-balance--negative">owes {{member.balanceCurrency}} {{member.absBalance}}</p>
+                      <p class="group-member-balance group-member-balance--positive">owes {{member.balanceCurrency}} {{member.absBalance}}</p>
                     {{else}}
-                      <p class="group-member-balance group-member-balance--positive">gets back {{member.balanceCurrency}} {{member.absBalance}}</p>
+                      <p class="group-member-balance group-member-balance--negative">gets back {{member.balanceCurrency}} {{member.absBalance}}</p>
                     {{/if}}
                   {{else}}
                     <p class="group-member-balance group-member-balance--neutral">settled up</p>

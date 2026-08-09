@@ -3,7 +3,7 @@ import { tracked } from '@glimmer/tracking';
 import { action } from '@ember/object';
 import { service } from '@ember/service';
 import { on } from '@ember/modifier';
-import { fn } from '@ember/helper';
+import { fn, eq } from '@ember/helper';
 import { LinkTo } from '@ember/routing';
 import RouteTemplate from 'ember-route-template';
 import ExpenseItem from 'splitup-ui/components/expense-item';
@@ -145,7 +145,7 @@ export class ExpensesIndexTemplate extends Component {
           {{if (eq this.sortOrder "desc") "Newest ↓" "Oldest ↑"}}
         </button>
         {{#if this.hasActiveFilters}}
-          <button type="button" class="btn-secondary" {{on "click" this.clearFilters}}>Clear</button>
+          <button type="button" class="btn-secondary" {{on "click" this.clearFilters}}>Clear filters</button>
         {{/if}}
       </div>
 

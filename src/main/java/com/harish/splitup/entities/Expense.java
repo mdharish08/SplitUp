@@ -83,6 +83,7 @@ public class Expense {
         expenseDto.setPaidBy(this.getPaidBy() != null ? this.getPaidBy().getId() : null);
         expenseDto.setGroupId(this.getGroup() != null ? this.getGroup().getGroupId() : null);
         expenseDto.setGroupName(this.getGroup() != null ? this.getGroup().getGroupName() : null);
+        expenseDto.setTrashed(this.isTrashed());
         expenseDto.setCategory(this.getCategory().toDTO());
         expenseDto.setUsers(this.getSplitDetails().stream().map(SplitDetails::toDTO).toList());
         return expenseDto;

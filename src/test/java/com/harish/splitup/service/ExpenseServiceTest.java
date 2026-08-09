@@ -396,4 +396,85 @@ class ExpenseServiceTest {
         then(commentsRepository).should(times(1)).delete(comment);
         then(expenseRepository).should(times(1)).save(any(Expense.class));
     }
+
+    @Test
+    void deleteExpense_softDeletesAndSetsAuditFields() {
+        Timestamp now = Timestamp.from(Instant.now());
+        SplitDetails selfSplit = SplitDetails.builder().withUser(user1).withOwedShare(new BigDecimal("50.00")).build();
+        SplitDetails friendSplit = SplitDetails.builder().withUser(user2).withOwedShare(new BigDecimal("50.00")).build();
+
+        Expense expense = buildMinimalExpense(now);
+        expense.setExpenseId(10L);
+        expense.setSplitDetails(List.of(selfSplit, friendSplit));
+
+        Balance b1 = Balance.builder().withUser(user1).withFriend(user2).withAmount(new BigDecimal("50.00"))
+                .withCurrencyCode(AppConstants.CurrencyCode.USD).build();
+        Balance b2 = Balance.builder().withUser(user2).withFriend(user1).withAmount(new BigDecimal("-50.00"))
+                .withCurrencyCode(AppConstants.CurrencyCode.USD).build();
+
+        given(userRepository.findByEmailId("alice@example.com")).willReturn(Optional.of(user1));
+        given(expenseRepository.findById(10L)).willReturn(Optional.of(expense));
+        given(balanceRepository.findPersonalByUserIdAndFriendIds(eq(1L), anyList())).willReturn(List.of(b1));
+        given(balanceRepository.findPersonalByUserIdsAndFriendId(anyList(), eq(1L))).willReturn(List.of(b2));
+
+        expenseService.deleteExpense(10L, "alice@example.com");
+
+        assertThat(expense.isTrashed()).isTrue();
+        assertThat(expense.getDeletedBy()).isEqualTo(1L);
+        assertThat(expense.getDeletedAt()).isNotNull();
+        then(expenseRepository).should(times(1)).save(expense);
+    }
+
+    @Test
+    void restoreExpense_reappliesBalancesAndClearsAuditFields() {
+        Timestamp now = Timestamp.from(Instant.now());
+        SplitDetails selfSplit = SplitDetails.builder().withUser(user1).withOwedShare(new BigDecimal("50.00")).build();
+        SplitDetails friendSplit = SplitDetails.builder().withUser(user2).withOwedShare(new BigDecimal("50.00")).build();
+
+        Expense expense = buildMinimalExpense(now);
+        expense.setExpenseId(10L);
+        expense.setSplitDetails(List.of(selfSplit, friendSplit));
+        expense.setTrashed(true);
+        expense.setDeletedBy(1L);
+        expense.setDeletedAt(now);
+
+        Balance b1 = Balance.builder().withUser(user1).withFriend(user2).withAmount(BigDecimal.ZERO)
+                .withCurrencyCode(AppConstants.CurrencyCode.USD).build();
+        Balance b2 = Balance.builder().withUser(user2).withFriend(user1).withAmount(BigDecimal.ZERO)
+                .withCurrencyCode(AppConstants.CurrencyCode.USD).build();
+
+        given(userRepository.findByEmailId("alice@example.com")).willReturn(Optional.of(user1));
+        given(expenseRepository.findById(10L)).willReturn(Optional.of(expense));
+        given(balanceRepository.findPersonalByUserIdAndFriendIds(eq(1L), anyList())).willReturn(List.of(b1));
+        given(balanceRepository.findPersonalByUserIdsAndFriendId(anyList(), eq(1L))).willReturn(List.of(b2));
+
+        ExpenseDto restored = expenseService.restoreExpense(10L, "alice@example.com");
+
+        assertThat(restored.isTrashed()).isFalse();
+        assertThat(expense.isTrashed()).isFalse();
+        assertThat(expense.getDeletedBy()).isNull();
+        assertThat(expense.getDeletedAt()).isNull();
+        then(expenseRepository).should(times(1)).save(expense);
+    }
+
+    @Test
+    void updateExpense_nonPayer_throwsAccessDenied() {
+        Timestamp now = Timestamp.from(Instant.now());
+        SplitDetails selfSplit = SplitDetails.builder().withUser(user1).build();
+        SplitDetails friendSplit = SplitDetails.builder().withUser(user2).build();
+        Expense expense = buildMinimalExpense(now);
+        expense.setExpenseId(10L);
+        expense.setPaidBy(user1);
+        expense.setSplitDetails(List.of(selfSplit, friendSplit));
+
+        ExpenseDto req = new ExpenseDto();
+        req.setDescription("Updated");
+
+        given(userRepository.findByEmailId("bob@example.com")).willReturn(Optional.of(user2));
+        given(expenseRepository.findById(10L)).willReturn(Optional.of(expense));
+
+        assertThatThrownBy(() -> expenseService.updateExpense(10L, req, "bob@example.com"))
+                .isInstanceOf(org.springframework.security.access.AccessDeniedException.class)
+                .hasMessageContaining("Only the payer");
+    }
 }

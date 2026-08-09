@@ -64,7 +64,7 @@ class ExpenseControllerTest {
 
     @Test
     void getExpenseById_success_returns200() throws Exception {
-        given(expenseService.getExpenseById(10L)).willReturn(sampleExpenseDto());
+        given(expenseService.getExpenseById(10L, "alice@example.com")).willReturn(sampleExpenseDto());
 
         mockMvc.perform(get("/api/v1/expense/10"))
                 .andExpect(status().isOk())
@@ -73,7 +73,7 @@ class ExpenseControllerTest {
 
     @Test
     void getExpenseById_notFound_returns404() throws Exception {
-        given(expenseService.getExpenseById(999L))
+        given(expenseService.getExpenseById(999L, "alice@example.com"))
                 .willThrow(new NoSuchElementException("Expense not found: 999"));
 
         mockMvc.perform(get("/api/v1/expense/999"))
@@ -87,7 +87,7 @@ class ExpenseControllerTest {
     void updateExpense_success_returns200() throws Exception {
         ExpenseDto updated = sampleExpenseDto();
         updated.setDescription("Updated lunch");
-        given(expenseService.updateExpense(eq(10L), any(ExpenseDto.class))).willReturn(updated);
+        given(expenseService.updateExpense(eq(10L), any(ExpenseDto.class), eq("alice@example.com"))).willReturn(updated);
 
         mockMvc.perform(put("/api/v1/expense/10")
                         .with(csrf())
@@ -99,7 +99,7 @@ class ExpenseControllerTest {
 
     @Test
     void updateExpense_notFound_returns404() throws Exception {
-        given(expenseService.updateExpense(eq(999L), any(ExpenseDto.class)))
+        given(expenseService.updateExpense(eq(999L), any(ExpenseDto.class), eq("alice@example.com")))
                 .willThrow(new NoSuchElementException("Expense not found: 999"));
 
         mockMvc.perform(put("/api/v1/expense/999")
@@ -122,11 +122,22 @@ class ExpenseControllerTest {
     @Test
     void deleteExpense_notFound_returns404() throws Exception {
         org.mockito.Mockito.doThrow(new NoSuchElementException("Expense not found: 999"))
-                .when(expenseService).deleteExpense(999L);
+                .when(expenseService).deleteExpense(999L, "alice@example.com");
 
         mockMvc.perform(delete("/api/v1/expense/999")
                         .with(csrf()))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void restoreExpense_success_returns200() throws Exception {
+        ExpenseDto restored = sampleExpenseDto();
+        given(expenseService.restoreExpense(10L, "alice@example.com")).willReturn(restored);
+
+        mockMvc.perform(patch("/api/v1/expense/10/restore")
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(10));
     }
 
     // ── POST /api/v1/expense ──────────────────────────────────────────────────

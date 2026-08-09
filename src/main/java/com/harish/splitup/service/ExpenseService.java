@@ -14,6 +14,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.access.AccessDeniedException;
 
 import com.harish.splitup.constants.AppConstants;
 import com.harish.splitup.dto.ExpenseDto;
@@ -54,7 +55,10 @@ public class ExpenseService {
     public List<ExpenseDto> getGroupExpenseDetails(Long groupId) {
         Group group = groupRepository.findById(groupId)
                 .orElseThrow(() -> new NoSuchElementException("Group not found"));
-        return group.getExpenses().stream().map(Expense::toDTO).toList();
+        return group.getExpenses().stream()
+                .filter(e -> !e.isTrashed())
+                .map(Expense::toDTO)
+                .toList();
     }
 
     @Transactional
@@ -240,16 +244,20 @@ public class ExpenseService {
     }
 
     @Transactional(readOnly = true)
-    public ExpenseDto getExpenseById(Long expenseId) {
-        Expense expense = expenseRepository.findById(expenseId)
-                .orElseThrow(() -> new NoSuchElementException("Expense not found: " + expenseId));
+    public ExpenseDto getExpenseById(Long expenseId, String actorEmail) {
+        SplitUser actor = requireUserByEmail(actorEmail);
+        Expense expense = requireExpenseForParticipant(expenseId, actor.getId());
         return expense.toDTO();
     }
 
     @Transactional
-    public ExpenseDto updateExpense(Long expenseId, ExpenseDto dto) {
-        Expense expense = expenseRepository.findById(expenseId)
-                .orElseThrow(() -> new NoSuchElementException("Expense not found: " + expenseId));
+    public ExpenseDto updateExpense(Long expenseId, ExpenseDto dto, String actorEmail) {
+        SplitUser actor = requireUserByEmail(actorEmail);
+        Expense expense = requireExpenseForParticipant(expenseId, actor.getId());
+        assertCanManageExpense(expense, actor.getId());
+        if (expense.isTrashed()) {
+            throw new IllegalStateException("Cannot edit a deleted expense. Restore it first.");
+        }
 
         if (dto.getDescription() != null) {
             expense.setDescription(dto.getDescription());
@@ -285,9 +293,13 @@ public class ExpenseService {
     }
 
     @Transactional
-    public void deleteExpense(Long expenseId) {
-        Expense expense = expenseRepository.findById(expenseId)
-                .orElseThrow(() -> new NoSuchElementException("Expense not found: " + expenseId));
+    public void deleteExpense(Long expenseId, String actorEmail) {
+        SplitUser actor = requireUserByEmail(actorEmail);
+        Expense expense = requireExpenseForParticipant(expenseId, actor.getId());
+        assertCanManageExpense(expense, actor.getId());
+        if (expense.isTrashed()) {
+            throw new IllegalStateException("Expense already deleted");
+        }
 
         // Reverse balance effects before deleting
         SplitUser paidUser = expense.getPaidBy();
@@ -297,7 +309,37 @@ public class ExpenseService {
             reverseBalances(paidUser, splitDetails, group);
         }
 
-        expenseRepository.delete(expense);
+        Timestamp now = Timestamp.from(Instant.now());
+        expense.setTrashed(true);
+        expense.setDeletedBy(actor.getId());
+        expense.setDeletedAt(now);
+        expense.setUpdatedAt(now);
+        expenseRepository.save(expense);
+    }
+
+    @Transactional
+    public ExpenseDto restoreExpense(Long expenseId, String actorEmail) {
+        SplitUser actor = requireUserByEmail(actorEmail);
+        Expense expense = requireExpenseForParticipant(expenseId, actor.getId());
+        assertCanManageExpense(expense, actor.getId());
+        if (!expense.isTrashed()) {
+            throw new IllegalStateException("Expense is not deleted");
+        }
+
+        SplitUser paidUser = expense.getPaidBy();
+        List<SplitDetails> splitDetails = expense.getSplitDetails();
+        Group group = expense.getGroup();
+        if (paidUser != null && splitDetails != null && !splitDetails.isEmpty()) {
+            updateBalances(paidUser, splitDetails, group);
+        }
+
+        Timestamp now = Timestamp.from(Instant.now());
+        expense.setTrashed(false);
+        expense.setDeletedBy(null);
+        expense.setDeletedAt(null);
+        expense.setUpdatedAt(now);
+        expenseRepository.save(expense);
+        return expense.toDTO();
     }
 
     private void reverseBalances(SplitUser paidUser, List<SplitDetails> splitDetails, Group group) {
@@ -337,7 +379,10 @@ public class ExpenseService {
 
             Balance paidVsFriend = paidToFriendMap.get(friendId);
             Balance friendVsPaid = friendToPaidMap.get(friendId);
-            if (paidVsFriend == null || friendVsPaid == null) continue; // skip if balance row missing
+            if (paidVsFriend == null || friendVsPaid == null) {
+                throw new ExpenseValidationException(
+                        "Balance record missing for pair (" + paidUser.getId() + ", " + friendId + ")");
+            }
 
             // Reverse: payer is owed less, friend owes less
             paidVsFriend.setAmount(paidVsFriend.getAmount().subtract(owed));
@@ -350,8 +395,11 @@ public class ExpenseService {
 
     @Transactional(readOnly = true)
     public List<ExpenseCommentDto> getExpenseComments(Long expenseId) {
-        expenseRepository.findById(expenseId)
+        Expense expense = expenseRepository.findById(expenseId)
                 .orElseThrow(() -> new NoSuchElementException("Expense not found"));
+        if (expense.isTrashed()) {
+            throw new NoSuchElementException("Expense not found");
+        }
         return commentsRepository.findAllByExpenseExpenseIdOrderByCreatedAtAsc(expenseId)
                 .stream()
                 .map(Comments::toDTO)
@@ -366,6 +414,9 @@ public class ExpenseService {
 
         Expense expense = expenseRepository.findById(expenseId)
                 .orElseThrow(() -> new NoSuchElementException("Expense not found"));
+        if (expense.isTrashed()) {
+            throw new IllegalStateException("Cannot comment on a deleted expense");
+        }
         SplitUser author = userRepository.findByEmailId(authorEmail)
                 .orElseThrow(() -> new NoSuchElementException("User not found: " + authorEmail));
 
@@ -391,6 +442,9 @@ public class ExpenseService {
     public void deleteExpenseComment(Long expenseId, Long commentId, String authorEmail) {
         Expense expense = expenseRepository.findById(expenseId)
                 .orElseThrow(() -> new NoSuchElementException("Expense not found"));
+        if (expense.isTrashed()) {
+            throw new IllegalStateException("Cannot modify comments on a deleted expense");
+        }
         Comments comment = commentsRepository.findByCommentIdAndExpenseExpenseId(commentId, expenseId)
                 .orElseThrow(() -> new NoSuchElementException("Comment not found"));
         SplitUser author = userRepository.findByEmailId(authorEmail)
@@ -404,5 +458,28 @@ public class ExpenseService {
         expense.setCommentsCount((int) commentsRepository.countByExpenseExpenseId(expenseId));
         expense.setUpdatedAt(Timestamp.from(Instant.now()));
         expenseRepository.save(expense);
+    }
+
+    private SplitUser requireUserByEmail(String email) {
+        return userRepository.findByEmailId(email)
+                .orElseThrow(() -> new NoSuchElementException("User not found: " + email));
+    }
+
+    private Expense requireExpenseForParticipant(Long expenseId, Long actorId) {
+        Expense expense = expenseRepository.findById(expenseId)
+                .orElseThrow(() -> new NoSuchElementException("Expense not found: " + expenseId));
+        boolean participant = expense.getSplitDetails() != null
+                && expense.getSplitDetails().stream().anyMatch(sd ->
+                sd.getUser() != null && sd.getUser().getId() != null && sd.getUser().getId().equals(actorId));
+        if (!participant) {
+            throw new AccessDeniedException("You are not part of this expense");
+        }
+        return expense;
+    }
+
+    private void assertCanManageExpense(Expense expense, Long actorId) {
+        if (expense.getPaidBy() == null || expense.getPaidBy().getId() == null || !expense.getPaidBy().getId().equals(actorId)) {
+            throw new AccessDeniedException("Only the payer can modify this expense");
+        }
     }
 }

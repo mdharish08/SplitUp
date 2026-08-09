@@ -30,6 +30,8 @@ public class ExpenseDto {
 
     private String description;
 
+    private boolean trashed;
+
     private Long paidBy;
 
     private Long deletedBy;

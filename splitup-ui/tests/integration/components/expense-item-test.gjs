@@ -125,7 +125,7 @@ module('Integration | Component | expense-item', function (hooks) {
     );
 
     // The date should be formatted (not empty)
-    assert.dom('.expense-row-date').doesNotHaveText('');
+    assert.dom('.expense-row-date').hasText(/.+/);
   });
 
   test('shows "USD 0.00" for a zero-cost expense', async function (assert) {

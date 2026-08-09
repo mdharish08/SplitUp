@@ -3,7 +3,7 @@ import { LinkTo } from '@ember/routing';
 import RouteTemplate from 'ember-route-template';
 import { avatarColor } from 'splitup-ui/utils/avatar-color';
 import { htmlSafe } from '@ember/template';
-import { or } from '@ember/helper';
+import { or, eq } from '@ember/helper';
 
 function initials(friend) {
   return ((friend.firstName?.[0] ?? '') + (friend.lastName?.[0] ?? '')).toUpperCase() || '?';

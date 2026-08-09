@@ -237,7 +237,6 @@ export class FriendsFriendTemplate extends Component {
             </div>
           </form>
         {{/if}}
-      {{/if}}
 
       {{! ── Transactions ── }}
       <p class="page-eyebrow" style="margin-top:32px; margin-bottom:12px;">Shared Expenses</p>
@@ -281,6 +280,12 @@ export class FriendsFriendTemplate extends Component {
           <p>No transactions yet.</p>
         </div>
       {{/if}}
+    {{else}}
+      <div class="empty-state">
+        <p>This friend could not be found.</p>
+        <LinkTo @route="friends.index" class="btn-secondary">← Back to Friends</LinkTo>
+      </div>
+    {{/if}}
     </div>
   </template>
 }

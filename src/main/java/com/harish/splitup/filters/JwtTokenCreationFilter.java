@@ -43,6 +43,8 @@ public class JwtTokenCreationFilter extends OncePerRequestFilter {
             SplitUser user = (SplitUser) authentication.getPrincipal();
             HashMap<String, String> claims = new HashMap<>();
             claims.put("userId", String.valueOf(user.getId()));
+            claims.put("firstName", user.getFirstName() != null ? user.getFirstName() : "");
+            claims.put("lastName", user.getLastName() != null ? user.getLastName() : "");
             String jwtToken = jwtService.createToken(claims, calendar.getTime(), user.getEmailId());
             response.setHeader("Authorization","Bearer " + jwtToken);
         }
